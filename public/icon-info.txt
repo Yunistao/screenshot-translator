@@ -1,0 +1,38 @@
+# 图标文件说明
+
+为了给您的截图翻译工具添加图标，您需要准备以下文件：
+
+## Windows 图标
+- 文件名: `icon.png`
+- 尺寸: 推荐 512x512 或 1024x1024 像素
+- 格式: PNG
+- 位置: `public/icon.png`
+
+## macOS 图标
+- 文件名: `icon.icns`
+- 格式: ICNS (macOS专用)
+- 位置: `public/icon.icns`
+
+## 如何创建图标
+您可以使用以下任一方式创建图标:
+
+1. 使用在线图标转换工具，如:
+   - https://convertio.co/png-icns/
+   - https://icoconvert.com/
+
+2. 使用专业图像编辑软件:
+   - Photoshop
+   - GIMP
+   - Figma
+
+3. 使用图标设计工具:
+   - IconJar
+   - Axialis Icon Workstation
+
+## 替代方案
+如果您暂时没有图标，可以先使用占位符，或者访问以下网站下载免费图标:
+- https://www.flaticon.com/
+- https://iconfinder.com/
+- https://icons8.com/
+
+确保所选图标符合 MIT 许可证要求，并将其放置在 public 目录下。
