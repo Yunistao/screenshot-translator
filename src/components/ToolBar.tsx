@@ -47,8 +47,8 @@ const ToolBar: React.FC<ToolBarProps> = ({
   };
 
   // 执行 OCR
-  const handleOCR = async () => {
-    if (!screenshotImage || !selectionArea) return;
+  const handleOCR = async (): Promise<string> => {
+    if (!screenshotImage || !selectionArea) return '';
 
     setIsProcessing(true);
     setIsTranslating(true);
@@ -61,9 +61,11 @@ const ToolBar: React.FC<ToolBarProps> = ({
       const text = await performOCR(croppedImage);
       setOcrText(text);
       setOcrResult(text);
+      return text;
     } catch (error) {
       console.error('OCR 失败:', error);
       setError('OCR 识别失败');
+      return '';
     } finally {
       setIsProcessing(false);
       setIsTranslating(false);
@@ -72,30 +74,30 @@ const ToolBar: React.FC<ToolBarProps> = ({
 
   // OCR + 翻译一键执行
   const handleOCRAndTranslate = async () => {
-    await handleOCR();
-    // OCR 完成后自动翻译
-    setTimeout(async () => {
-      if (ocrResult) {
-        setIsProcessing(true);
-        setIsTranslating(true);
-        try {
-          const engine = getTranslatorEngine();
-          const translated = await translateText(
-            ocrResult,
-            languagePair.source,
-            languagePair.target,
-            engine
-          );
-          setTranslatedText(translated);
-        } catch (error) {
-          console.error('翻译失败:', error);
-          setError('翻译失败');
-        } finally {
-          setIsProcessing(false);
-          setIsTranslating(false);
-        }
+    const text = await handleOCR();
+
+    if (text) {
+      setIsProcessing(true);
+      setIsTranslating(true);
+      try {
+        const engine = getTranslatorEngine();
+        const translated = await translateText(
+          text,
+          languagePair.source,
+          languagePair.target,
+          engine
+        );
+        setTranslatedText(translated);
+        // 翻译完成后关闭覆盖窗口，返回主窗口显示结果
+        onClose();
+      } catch (error) {
+        console.error('翻译失败:', error);
+        setError('翻译失败');
+      } finally {
+        setIsProcessing(false);
+        setIsTranslating(false);
       }
-    }, 100);
+    }
   };
 
   // 裁剪图片

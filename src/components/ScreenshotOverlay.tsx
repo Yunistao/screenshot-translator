@@ -28,7 +28,7 @@ const ScreenshotOverlay: React.FC = () => {
   } = useAppStore();
 
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
+  const [, setCurrentPoint] = useState<Point | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
