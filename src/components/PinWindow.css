@@ -1,0 +1,180 @@
+.pin-window {
+  position: fixed;
+  background: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  min-height: 150px;
+}
+
+.pin-window.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 100px;
+  color: #fff;
+}
+
+.pin-window.minimized {
+  width: auto !important;
+  height: auto !important;
+}
+
+/* 标题栏 */
+.pin-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a1a;
+  padding: 6px 10px;
+  cursor: move;
+  user-select: none;
+}
+
+.pin-title {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pin-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.control-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: #3d3d3d;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.control-btn:hover {
+  background: #4d4d4d;
+}
+
+.control-btn.close:hover {
+  background: #e74c3c;
+}
+
+/* 内容区域 */
+.pin-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 标签页 */
+.pin-tabs {
+  display: flex;
+  background: #252525;
+  border-bottom: 1px solid #3d3d3d;
+}
+
+.pin-tabs button {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pin-tabs button:hover {
+  color: #fff;
+  background: #3d3d3d;
+}
+
+.pin-tabs button.active {
+  color: #00a8ff;
+  background: #2d2d2d;
+  border-bottom: 2px solid #00a8ff;
+}
+
+/* 内容主体 */
+.pin-body {
+  flex: 1;
+  overflow: auto;
+  background: #1a1a1a;
+}
+
+.pin-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 10px;
+}
+
+.pin-text {
+  padding: 12px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pin-text pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 操作按钮 */
+.pin-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #252525;
+  border-top: 1px solid #3d3d3d;
+}
+
+.pin-actions button {
+  flex: 1;
+  padding: 6px 12px;
+  background: #3d3d3d;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pin-actions button:hover {
+  background: #4d4d4d;
+  border-color: #00a8ff;
+}
+
+/* 缩放手柄 */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #555 50%);
+  border-radius: 0 0 8px 0;
+}
+
+.resize-handle:hover {
+  background: linear-gradient(135deg, transparent 50%, #00a8ff 50%);
+}

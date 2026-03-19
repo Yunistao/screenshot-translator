@@ -1,16 +1,95 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ScreenshotTool from './components/ScreenshotTool';
 import SettingsPanel from './components/SettingsPanel';
+import ScreenshotOverlay from './components/ScreenshotOverlay';
+import PinWindow from './components/PinWindow';
 import { useAppStore } from './store/appStore';
 import { imageManager, ImageItem } from './services/imageManager';
 import { useI18n } from './i18n/I18nContext';
 
-const App: React.FC = () => {
+// 主应用组件
+const MainApp: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [historyItems, setHistoryItems] = useState<ImageItem[]>([]);
-  const { translatedText, setTranslatedText, ocrText, setOcrText, imageData, setImageData } = useAppStore();
+  const {
+    translatedText,
+    setTranslatedText,
+    ocrText,
+    setOcrText,
+    imageData,
+    setImageData,
+    isProcessing
+  } = useAppStore();
   const { tNested } = useI18n();
+
+  // 用于跟踪是否已保存到历史记录
+  const savedRef = React.useRef<string>('');
+
+  // 应用主题
+  useEffect(() => {
+    const applyTheme = () => {
+      const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
+      if (savedSettings) {
+        try {
+          const { theme } = JSON.parse(savedSettings);
+          document.documentElement.setAttribute('data-theme', theme || 'light');
+        } catch {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      }
+    };
+
+    applyTheme();
+
+    // 监听存储变化以更新主题
+    const handleStorageChange = () => applyTheme();
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // 自动保存到历史记录
+  useEffect(() => {
+    // 只有当所有数据都存在且不在处理中时才保存
+    if (imageData && ocrText && translatedText && !isProcessing) {
+      // 使用内容的哈希作为唯一标识，避免重复保存
+      const contentHash = `${ocrText}-${translatedText}`.substring(0, 100);
+
+      if (savedRef.current !== contentHash) {
+        savedRef.current = contentHash;
+
+        // 获取设置中的语言
+        const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
+        let sourceLanguage = 'auto';
+        let targetLanguage = 'zh-Hans';
+
+        if (savedSettings) {
+          try {
+            const settings = JSON.parse(savedSettings);
+            sourceLanguage = settings.sourceLanguage || 'auto';
+            targetLanguage = settings.targetLanguage || 'zh-Hans';
+          } catch {
+            // 使用默认值
+          }
+        }
+
+        // 保存到历史记录
+        imageManager.addImage(
+          imageData,
+          ocrText,
+          translatedText,
+          sourceLanguage,
+          targetLanguage
+        );
+
+        // 刷新历史记录列表
+        loadHistory();
+      }
+    }
+  }, [ocrText, translatedText, imageData, isProcessing]);
 
   // 监听截图请求
   useEffect(() => {
@@ -18,7 +97,7 @@ const App: React.FC = () => {
     loadHistory();
 
     // 监听翻译结果事件
-    const handleTranslationResult = (event: any, imageData: string, translatedText: string) => {
+    const handleTranslationResult = (_event: any, imageData: string, translatedText: string) => {
       setImageData(imageData);
       setTranslatedText(translatedText);
     };
@@ -32,21 +111,36 @@ const App: React.FC = () => {
     };
   }, [setImageData, setTranslatedText]);
 
-  const loadHistory = () => {
+  const loadHistory = React.useCallback(() => {
     const items = imageManager.getAll();
     setHistoryItems(items);
-  };
+  }, []);
 
   const addToHistory = () => {
     if (imageData && ocrText && translatedText) {
+      // 获取设置中的语言
+      const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
+      let sourceLanguage = 'auto';
+      let targetLanguage = 'zh-Hans';
+
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings);
+          sourceLanguage = settings.sourceLanguage || 'auto';
+          targetLanguage = settings.targetLanguage || 'zh-Hans';
+        } catch {
+          // 使用默认值
+        }
+      }
+
       imageManager.addImage(
         imageData,
         ocrText,
         translatedText,
-        'auto', // 源语言，可以改进为自动检测
-        'zh-Hans' // 目标语言，可以从设置获取
+        sourceLanguage,
+        targetLanguage
       );
-      loadHistory(); // 重新加载历史记录
+      loadHistory();
     }
   };
 
@@ -144,6 +238,29 @@ const App: React.FC = () => {
       {showSettings && <SettingsPanel />}
     </div>
   );
+};
+
+// 路由入口组件
+const App: React.FC = () => {
+  // 使用 useMemo 缓存查询参数解析
+  const { isOverlay, isPin } = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      isOverlay: params.get('overlay') === 'true',
+      isPin: params.get('pin') === 'true',
+    };
+  }, []);
+
+  // 根据查询参数渲染不同的组件
+  if (isOverlay) {
+    return <ScreenshotOverlay />;
+  }
+
+  if (isPin) {
+    return <PinWindow />;
+  }
+
+  return <MainApp />;
 };
 
 export default App;
