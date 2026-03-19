@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18n/I18nContext';
+import { OCR_LANGUAGES } from '../services/ocrService';
+import { TRANSLATOR_ENGINES } from '../services/translationService';
 
 interface Settings {
   shortcutKey: string;
@@ -12,6 +14,22 @@ interface Settings {
   fontSize: number;
   opacity: number;
   theme: 'light' | 'dark';
+  ocrLanguage: string;
+  translatorEngine: string;
+  googleTranslateApiKey: string;
+  baiduTranslateAppId: string;
+  baiduTranslateAppKey: string;
+  youdaoTranslateAppKey: string;
+  youdaoTranslateAppSecret: string;
+  // LLM 配置
+  openaiApiKey: string;
+  openaiBaseUrl: string;
+  openaiModel: string;
+  claudeApiKey: string;
+  claudeBaseUrl: string;
+  claudeModel: string;
+  geminiApiKey: string;
+  geminiModel: string;
 }
 
 const SettingsPanel: React.FC = () => {
@@ -28,7 +46,23 @@ const SettingsPanel: React.FC = () => {
     autoCopy: true,
     fontSize: 14,
     opacity: 0.9,
-    theme: 'light'
+    theme: 'light',
+    ocrLanguage: 'chi_sim+eng',
+    translatorEngine: 'microsoft',
+    googleTranslateApiKey: '',
+    baiduTranslateAppId: '',
+    baiduTranslateAppKey: '',
+    youdaoTranslateAppKey: '',
+    youdaoTranslateAppSecret: '',
+    // LLM 配置
+    openaiApiKey: '',
+    openaiBaseUrl: '',
+    openaiModel: 'gpt-4o-mini',
+    claudeApiKey: '',
+    claudeBaseUrl: '',
+    claudeModel: 'claude-3-haiku-20240307',
+    geminiApiKey: '',
+    geminiModel: 'gemini-1.5-flash',
   });
   const [saved, setSaved] = useState(false);
 
@@ -61,6 +95,9 @@ const SettingsPanel: React.FC = () => {
     // 保存设置到本地存储
     localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(settings));
 
+    // 通知主进程更新快捷键
+    window.electronAPI?.updateShortcut?.(settings.shortcutKey);
+
     // 通知用户保存成功
     setSaved(true);
 
@@ -69,7 +106,6 @@ const SettingsPanel: React.FC = () => {
       setSaved(false);
     }, 3000);
 
-    // 在实际应用中，这里还应该更新快捷键和其他设置
     console.log('保存设置:', settings);
   };
 
@@ -84,7 +120,23 @@ const SettingsPanel: React.FC = () => {
       autoCopy: true,
       fontSize: 14,
       opacity: 0.9,
-      theme: 'light'
+      theme: 'light',
+      ocrLanguage: 'chi_sim+eng',
+      translatorEngine: 'microsoft',
+      googleTranslateApiKey: '',
+      baiduTranslateAppId: '',
+      baiduTranslateAppKey: '',
+      youdaoTranslateAppKey: '',
+      youdaoTranslateAppSecret: '',
+      // LLM 配置
+      openaiApiKey: '',
+      openaiBaseUrl: '',
+      openaiModel: 'gpt-4o-mini',
+      claudeApiKey: '',
+      claudeBaseUrl: '',
+      claudeModel: 'claude-3-haiku-20240307',
+      geminiApiKey: '',
+      geminiModel: 'gemini-1.5-flash',
     };
 
     setSettings(defaultSettings);
@@ -180,6 +232,200 @@ const SettingsPanel: React.FC = () => {
             <option value="de">{tNested('settings.languages.de')}</option>
             <option value="it">{tNested('settings.languages.it')}</option>
             <option value="pt">{tNested('settings.languages.pt')}</option>
+          </select>
+        </div>
+
+        <div className="setting-item">
+          <label htmlFor="translatorEngine">翻译引擎</label>
+          <select
+            id="translatorEngine"
+            value={settings.translatorEngine}
+            onChange={(e) => handleChange('translatorEngine', e.target.value)}
+          >
+            {TRANSLATOR_ENGINES.map(engine => (
+              <option key={engine.code} value={engine.code}>{engine.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Google翻译API设置 */}
+        {settings.translatorEngine === 'google' && (
+          <div className="setting-item">
+            <label htmlFor="googleTranslateApiKey">Google翻译API密钥</label>
+            <input
+              type="password"
+              id="googleTranslateApiKey"
+              value={settings.googleTranslateApiKey}
+              onChange={(e) => handleChange('googleTranslateApiKey', e.target.value)}
+              placeholder="输入Google翻译API密钥"
+            />
+          </div>
+        )}
+
+        {/* 百度翻译API设置 */}
+        {settings.translatorEngine === 'baidu' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="baiduTranslateAppId">百度翻译App ID</label>
+              <input
+                type="text"
+                id="baiduTranslateAppId"
+                value={settings.baiduTranslateAppId}
+                onChange={(e) => handleChange('baiduTranslateAppId', e.target.value)}
+                placeholder="输入百度翻译App ID"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="baiduTranslateAppKey">百度翻译App Key</label>
+              <input
+                type="password"
+                id="baiduTranslateAppKey"
+                value={settings.baiduTranslateAppKey}
+                onChange={(e) => handleChange('baiduTranslateAppKey', e.target.value)}
+                placeholder="输入百度翻译App Key"
+              />
+            </div>
+          </>
+        )}
+
+        {/* 有道翻译API设置 */}
+        {settings.translatorEngine === 'youdao' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="youdaoTranslateAppKey">有道翻译App Key</label>
+              <input
+                type="text"
+                id="youdaoTranslateAppKey"
+                value={settings.youdaoTranslateAppKey}
+                onChange={(e) => handleChange('youdaoTranslateAppKey', e.target.value)}
+                placeholder="输入有道翻译App Key"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="youdaoTranslateAppSecret">有道翻译App Secret</label>
+              <input
+                type="password"
+                id="youdaoTranslateAppSecret"
+                value={settings.youdaoTranslateAppSecret}
+                onChange={(e) => handleChange('youdaoTranslateAppSecret', e.target.value)}
+                placeholder="输入有道翻译App Secret"
+              />
+            </div>
+          </>
+        )}
+
+        {/* OpenAI 配置 */}
+        {settings.translatorEngine === 'openai' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="openaiApiKey">OpenAI API 密钥</label>
+              <input
+                type="password"
+                id="openaiApiKey"
+                value={settings.openaiApiKey}
+                onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                placeholder="sk-..."
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="openaiBaseUrl">API Base URL (可选)</label>
+              <input
+                type="text"
+                id="openaiBaseUrl"
+                value={settings.openaiBaseUrl}
+                onChange={(e) => handleChange('openaiBaseUrl', e.target.value)}
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="openaiModel">模型</label>
+              <input
+                type="text"
+                id="openaiModel"
+                value={settings.openaiModel}
+                onChange={(e) => handleChange('openaiModel', e.target.value)}
+                placeholder="gpt-4o-mini"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Claude 配置 */}
+        {settings.translatorEngine === 'claude' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="claudeApiKey">Claude API 密钥</label>
+              <input
+                type="password"
+                id="claudeApiKey"
+                value={settings.claudeApiKey}
+                onChange={(e) => handleChange('claudeApiKey', e.target.value)}
+                placeholder="sk-ant-..."
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="claudeBaseUrl">API Base URL (可选)</label>
+              <input
+                type="text"
+                id="claudeBaseUrl"
+                value={settings.claudeBaseUrl}
+                onChange={(e) => handleChange('claudeBaseUrl', e.target.value)}
+                placeholder="https://api.anthropic.com"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="claudeModel">模型</label>
+              <input
+                type="text"
+                id="claudeModel"
+                value={settings.claudeModel}
+                onChange={(e) => handleChange('claudeModel', e.target.value)}
+                placeholder="claude-3-haiku-20240307"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Gemini 配置 */}
+        {settings.translatorEngine === 'gemini' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="geminiApiKey">Gemini API 密钥</label>
+              <input
+                type="password"
+                id="geminiApiKey"
+                value={settings.geminiApiKey}
+                onChange={(e) => handleChange('geminiApiKey', e.target.value)}
+                placeholder="AIza..."
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="geminiModel">模型</label>
+              <input
+                type="text"
+                id="geminiModel"
+                value={settings.geminiModel}
+                onChange={(e) => handleChange('geminiModel', e.target.value)}
+                placeholder="gemini-1.5-flash"
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="setting-group">
+        <h3>OCR设置</h3>
+
+        <div className="setting-item">
+          <label htmlFor="ocrLanguage">OCR语言模型</label>
+          <select
+            id="ocrLanguage"
+            value={settings.ocrLanguage}
+            onChange={(e) => handleChange('ocrLanguage', e.target.value)}
+          >
+            {OCR_LANGUAGES.map(lang => (
+              <option key={lang.code} value={lang.code}>{lang.name}</option>
+            ))}
           </select>
         </div>
       </div>
