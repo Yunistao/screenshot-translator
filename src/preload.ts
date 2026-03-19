@@ -11,12 +11,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
   requestScreenshot: () => ipcRenderer.invoke('request-screenshot'),
   captureScreenshot: (x: number, y: number, width: number, height: number) => ipcRenderer.invoke('capture-screenshot', x, y, width, height),
 
+  // Screenshot overlay related
+  captureScreen: () => ipcRenderer.invoke('capture-screen'),
+  openScreenshotOverlay: () => ipcRenderer.invoke('open-screenshot-overlay'),
+  closeScreenshotOverlay: () => ipcRenderer.invoke('close-screenshot-overlay'),
+  onScreenshotCaptured: (callback: (imageData: string) => void) =>
+    ipcRenderer.on('screenshot-captured', (_event, imageData) => callback(imageData)),
+  offScreenshotCaptured: () => ipcRenderer.removeAllListeners('screenshot-captured'),
+  getOverlayScreenshot: () => ipcRenderer.invoke('get-overlay-screenshot'),
+
   // Translation related
   onTranslationComplete: (callback: (imageData: string, translatedText: string) => void) =>
     ipcRenderer.on('translation-complete', (_event, imageData, translatedText) => callback(imageData, translatedText)),
+  offTranslationComplete: () => ipcRenderer.removeAllListeners('translation-complete'),
   sendTranslationResult: (imageData: string, translatedText: string) =>
     ipcRenderer.send('translation-complete', imageData, translatedText),
 
   // OCR related
   performOCR: (imageData: string) => ipcRenderer.invoke('perform-ocr', imageData),
+
+  // Shortcut related
+  updateShortcut: (shortcutKey: string) => ipcRenderer.send('update-shortcut', shortcutKey),
+  getShortcutStatus: () => ipcRenderer.invoke('get-shortcut-status'),
+  onShortcutStatus: (callback: (status: { registered: boolean; shortcut: string; error?: string }) => void) =>
+    ipcRenderer.on('shortcut-status', (_event, status) => callback(status)),
+  offShortcutStatus: () => ipcRenderer.removeAllListeners('shortcut-status'),
+
+  // Pin window related
+  createPinWindow: (imageData: string, ocrText?: string, translatedText?: string) =>
+    ipcRenderer.invoke('create-pin-window', imageData, ocrText, translatedText),
+  setAlwaysOnTop: (windowId: number, alwaysOnTop: boolean) =>
+    ipcRenderer.invoke('set-always-on-top', windowId, alwaysOnTop),
+  closePinWindow: (windowId: number) =>
+    ipcRenderer.invoke('close-pin-window', windowId),
+  onPinWindowData: (callback: (data: { imageData: string; ocrText: string; translatedText: string }) => void) =>
+    ipcRenderer.on('pin-window-data', (_event, data) => callback(data)),
+  offPinWindowData: () => ipcRenderer.removeAllListeners('pin-window-data'),
 });

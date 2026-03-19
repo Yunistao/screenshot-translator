@@ -46,6 +46,13 @@ export interface LLMConfig {
   model?: string;
 }
 
+// 置顶窗口数据
+export interface PinWindowData {
+  imageData: string;
+  ocrText: string;
+  translatedText: string;
+}
+
 interface ElectronAPI {
   // 截图相关
   onScreenshotRequest: (callback: () => void) => void;
@@ -53,6 +60,14 @@ interface ElectronAPI {
   onProcessScreenshot: (callback: (imageData: string) => void) => void;
   requestScreenshot: () => Promise<string | null>;
   captureScreenshot: (x: number, y: number, width: number, height: number) => Promise<string | null>;
+
+  // 截图覆盖窗口相关
+  captureScreen: () => Promise<string | null>;
+  openScreenshotOverlay: () => Promise<boolean>;
+  closeScreenshotOverlay: () => Promise<void>;
+  onScreenshotCaptured: (callback: (imageData: string) => void) => void;
+  offScreenshotCaptured: () => void;
+  getOverlayScreenshot: () => Promise<string | null>;
 
   // 翻译相关
   onTranslationComplete: (callback: (imageData: string, translatedText: string) => void) => void;
@@ -67,6 +82,13 @@ interface ElectronAPI {
   getShortcutStatus: () => Promise<ShortcutStatus>;
   onShortcutStatus: (callback: (status: ShortcutStatus) => void) => void;
   offShortcutStatus: () => void;
+
+  // 置顶窗口相关
+  createPinWindow: (imageData: string, ocrText?: string, translatedText?: string) => Promise<boolean>;
+  setAlwaysOnTop: (windowId: number, alwaysOnTop: boolean) => Promise<boolean>;
+  closePinWindow: (windowId: number) => Promise<boolean>;
+  onPinWindowData: (callback: (data: PinWindowData) => void) => void;
+  offPinWindowData: () => void;
 }
 
 declare global {
