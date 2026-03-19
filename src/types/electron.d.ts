@@ -87,6 +87,7 @@ interface ElectronAPI {
   createPinWindow: (imageData: string, ocrText?: string, translatedText?: string) => Promise<boolean>;
   setAlwaysOnTop: (windowId: number, alwaysOnTop: boolean) => Promise<boolean>;
   closePinWindow: (windowId: number) => Promise<boolean>;
+  closeCurrentWindow: () => Promise<boolean>;
   onPinWindowData: (callback: (data: PinWindowData) => void) => void;
   offPinWindowData: () => void;
 }

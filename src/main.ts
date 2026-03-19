@@ -483,6 +483,16 @@ ipcMain.handle('close-pin-window', async (_event, windowId: number) => {
   return false;
 });
 
+// IPC: 关闭当前窗口（用于置顶窗口）
+ipcMain.handle('close-current-window', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.close();
+    return true;
+  }
+  return false;
+});
+
 app.whenReady().then(() => {
   createWindow();
 

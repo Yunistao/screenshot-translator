@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('set-always-on-top', windowId, alwaysOnTop),
   closePinWindow: (windowId: number) =>
     ipcRenderer.invoke('close-pin-window', windowId),
+  closeCurrentWindow: () =>
+    ipcRenderer.invoke('close-current-window'),
   onPinWindowData: (callback: (data: { imageData: string; ocrText: string; translatedText: string }) => void) =>
     ipcRenderer.on('pin-window-data', (_event, data) => callback(data)),
   offPinWindowData: () => ipcRenderer.removeAllListeners('pin-window-data'),

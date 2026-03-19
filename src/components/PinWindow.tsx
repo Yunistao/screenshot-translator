@@ -108,12 +108,7 @@ const PinWindow: React.FC = () => {
 
   // 关闭窗口
   const handleClose = async () => {
-    // 在实际 Electron 窗口中关闭
-    const { remote } = require('electron');
-    const currentWindow = remote?.getCurrentWindow();
-    if (currentWindow) {
-      currentWindow.close();
-    }
+    await window.electronAPI?.closeCurrentWindow?.();
   };
 
   // 复制图片
