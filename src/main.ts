@@ -241,9 +241,11 @@ function tryRegisterShortcut(shortcutKey: string): boolean {
       const imageData = await captureScreen();
       if (imageData) {
         createScreenshotOverlayWindow();
-        setTimeout(() => {
+
+        // 等待窗口加载完成后发送截图数据
+        screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
           screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
-        }, 100);
+        });
       }
     });
 
@@ -385,10 +387,12 @@ ipcMain.handle('open-screenshot-overlay', async () => {
   const imageData = await captureScreen();
   if (imageData) {
     createScreenshotOverlayWindow();
+
     // 等待窗口加载完成后发送截图数据
-    setTimeout(() => {
+    screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
       screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
-    }, 100);
+    });
+
     return true;
   }
   return false;
