@@ -1,56 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAppStore } from '../store/appStore';
 import { useI18n } from '../i18n/I18nContext';
 
-// 设置接口
-interface Settings {
-  shortcutKey: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-  translatorApiKey: string;
-  translatorRegion: string;
-  translatorEndpoint: string;
-  autoCopy: boolean;
-  fontSize: number;
-  opacity: number;
-  theme: 'light' | 'dark';
-  ocrLanguage: string;
-  translatorEngine: 'microsoft' | 'google' | 'baidu' | 'youdao';
-  googleTranslateApiKey: string;
-  baiduTranslateAppId: string;
-  baiduTranslateAppKey: string;
-  youdaoTranslateAppKey: string;
-  youdaoTranslateAppSecret: string;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  shortcutKey: 'Alt+S',
-  sourceLanguage: 'auto',
-  targetLanguage: 'zh-Hans',
-  translatorApiKey: '',
-  translatorRegion: 'global',
-  translatorEndpoint: '',
-  autoCopy: true,
-  fontSize: 14,
-  opacity: 0.9,
-  theme: 'light',
-  ocrLanguage: 'chi_sim+eng',
-  translatorEngine: 'microsoft',
-  googleTranslateApiKey: '',
-  baiduTranslateAppId: '',
-  baiduTranslateAppKey: '',
-  youdaoTranslateAppKey: '',
-  youdaoTranslateAppSecret: ''
-};
-
 const ScreenshotTool: React.FC = () => {
-  const { setIsProcessing } = useAppStore();
   const [isSelecting, setIsSelecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [processingProgress, setProcessingProgress] = useState<string>('');
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [shortcutStatus, setShortcutStatus] = useState<{ registered: boolean; shortcut: string }>({ registered: false, shortcut: '' });
   const { tNested } = useI18n();
 
@@ -102,15 +58,6 @@ const ScreenshotTool: React.FC = () => {
       window.electronAPI.onShortcutStatus?.((status) => {
         setShortcutStatus(status);
       });
-    }
-
-    const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
-    if (savedSettings) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
-      } catch (error) {
-        console.error('解析设置失败:', error);
-      }
     }
   }, []);
 
