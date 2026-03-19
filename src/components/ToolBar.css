@@ -1,0 +1,92 @@
+.toolbar {
+  position: fixed;
+  z-index: 10000;
+  background: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  min-width: 400px;
+}
+
+.toolbar-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.language-selector select {
+  background: #3d3d3d;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.language-selector select:hover {
+  border-color: #00a8ff;
+}
+
+.language-selector select:focus {
+  outline: none;
+  border-color: #00a8ff;
+}
+
+.language-selector .arrow {
+  color: #888;
+  font-size: 14px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-actions button {
+  background: #3d3d3d;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-actions button:hover {
+  background: #4d4d4d;
+  border-color: #00a8ff;
+}
+
+.toolbar-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-actions button.btn-primary {
+  background: #00a8ff;
+  border-color: #00a8ff;
+  color: #fff;
+}
+
+.toolbar-actions button.btn-primary:hover {
+  background: #0090e0;
+}
+
+.toolbar-actions button.btn-cancel {
+  background: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.toolbar-actions button.btn-cancel:hover {
+  background: #c0392b;
+}
