@@ -5,7 +5,32 @@
       "Bash(git init)",
       "Bash(git config:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF'':*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm run build:main)",
+      "Bash(npm run build:renderer)",
+      "Bash(gh pr list:*)",
+      "Bash(npm install spark-md5)",
+      "Bash(npm install -D @types/spark-md5)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(taskkill /F /IM:*)",
+      "Bash(netstat:*)",
+      "Bash(npx skills find:*)",
+      "Bash(npx skills add obra/superpowers@using-superpowers -g -y:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.snipaste.com)",
+      "WebFetch(domain:zh.snipaste.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api repos/liulex/Snipaste-Feedback --jq '.description':*)",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }

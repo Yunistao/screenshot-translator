@@ -28,13 +28,12 @@ const ScreenshotOverlay: React.FC = () => {
   } = useAppStore();
 
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [currentPoint, setCurrentPoint] = useState<Point | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   // 监听截图数据
   useEffect(() => {
-    const handleScreenshotCaptured = (_event: any, imageData: string) => {
+    const handleScreenshotCaptured = (imageData: string) => {
       setScreenshotImage(imageData);
     };
 

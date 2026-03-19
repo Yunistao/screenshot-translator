@@ -1,6 +1,5 @@
 import SparkMD5 from 'spark-md5';
 import { translateWithLLM } from './llmTranslation';
-import { LLMConfig } from '../types/electron';
 
 // 翻译引擎类型
 export type TranslatorEngine = 'microsoft' | 'google' | 'baidu' | 'youdao' | 'openai' | 'claude' | 'gemini';

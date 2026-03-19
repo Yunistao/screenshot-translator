@@ -70,36 +70,6 @@ const ToolBar: React.FC<ToolBarProps> = ({
     }
   };
 
-  // 执行翻译
-  const handleTranslate = async () => {
-    if (!ocrResult) {
-      // 先执行 OCR
-      await handleOCR();
-    }
-
-    if (!ocrResult) return;
-
-    setIsProcessing(true);
-    setIsTranslating(true);
-
-    try {
-      const engine = getTranslatorEngine();
-      const translated = await translateText(
-        ocrResult,
-        languagePair.source,
-        languagePair.target,
-        engine
-      );
-      setTranslatedText(translated);
-    } catch (error) {
-      console.error('翻译失败:', error);
-      setError('翻译失败');
-    } finally {
-      setIsProcessing(false);
-      setIsTranslating(false);
-    }
-  };
-
   // OCR + 翻译一键执行
   const handleOCRAndTranslate = async () => {
     await handleOCR();

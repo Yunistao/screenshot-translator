@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this repository.
 
 ## 项目概述
 
@@ -9,72 +9,106 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 常用命令
 
 ```bash
-# 开发运行
+# 开发运行 (同时监视主进程编译并启动 Electron)
 npm run dev
 
 # 构建应用
-npm run build
+npm run build                    # 完整构建 (主进程 + 渲染进程)
+npm run build:main              # 仅编译 Electron 主进程 (tsc -p tsconfig.main.json)
+npm run build:renderer          # 仅编译渲染进程 (Vite)
 
-# 分别构建主进程和渲染进程
-npm run build:main   # 编译 Electron 主进程 (TypeScript -> dist/main.js)
-npm run build:renderer  # 编译渲染进程 (Vite)
+# 开发时监视主进程变化
+npm run build:watch             # tsc -w，持续编译主进程
 
 # 打包安装包
-npm run dist         # 构建所有平台
-npm run dist:win     # 构建 Windows 安装包
-npm run dist:mac     # 构建 macOS 安装包
-npm run dist:linux   # 构建 Linux 安装包
-
-# 直接运行 Electron
-npm start
+npm run dist:win                # Windows NSIS 安装包
+npm run dist:mac                # macOS 安装包
+npm run dist:linux              # Linux AppImage
 ```
 
 ## 技术架构
 
-### 进程模型
-- **主进程** (`src/main.ts`): Electron 主进程，管理窗口、全局快捷键 (Alt+S)、截图捕获、IPC 通信
-- **预加载脚本** (`src/preload.ts`): 通过 contextBridge 安全暴露 IPC API 到渲染进程
-- **渲染进程**: React 应用，处理 UI 和业务逻辑
+### 构建系统
 
-### 前端架构
+项目使用两套独立的 TypeScript 配置:
+- **主进程**: `tsconfig.main.json` → 输出到 `dist/main.js`, `dist/preload.js`
+- **渲染进程**: `tsconfig.json` + Vite → 输出到 `dist/assets/`
+
+主进程使用 CommonJS 模块，渲染进程使用 ESM。
+
+### 进程模型
+
 ```
-src/
-├── components/          # React 组件
-│   ├── ScreenshotTool.tsx  # 截图工具组件
-│   └── SettingsPanel.tsx  # 设置面板
-├── services/            # 业务服务
-│   ├── ocrService.ts       # Tesseract.js OCR 识别
-│   ├── translationService.ts  # 微软翻译 API
-│   └── imageManager.ts    # 图片历史管理 (localStorage)
-├── store/               # 状态管理
-│   └── appStore.ts       # Zustand 状态管理
-├── i18n/                # 国际化
-│   ├── I18nContext.tsx
-│   └── zh-CN.ts
-├── main.ts              # Electron 主进程入口
-├── preload.ts           # 预加载脚本
-├── renderer.tsx         # 渲染进程入口
-└── App.tsx              # 主应用组件
+主进程 (src/main.ts)
+    │
+    ├── 窗口管理 (BrowserWindow)
+    ├── 菜单设置
+    └── IPC 通信
+            │
+            ▼
+    预加载脚本 (src/preload.ts)
+    contextBridge.exposeInMainWorld('electronAPI', {...})
+            │
+            ▼
+    渲染进程 (React 应用)
 ```
+
+### IPC API (preload.ts)
+
+渲染进程通过 `window.electronAPI` 访问:
+
+| 方法 | 用途 |
+|------|------|
+| `captureScreenshot(x, y, w, h)` | 捕获指定区域截图 |
+| `onProcessScreenshot(callback)` | 监听截图完成事件 |
+| `onTranslationComplete(callback)` | 监听翻译完成事件 |
+| `performOCR(imageData)` | 在主进程执行 OCR |
+
+### 翻译引擎
+
+支持四种翻译服务，通过 `localStorage` 存储配置:
+- **Microsoft** (默认): `translator_api_key`, `translator_region`, `translator_endpoint`
+- **Google**: `google_translate_api_key`
+- **Baidu**: `baidu_translate_app_id`, `baidu_translate_app_key`
+- **Youdao**: `youdao_translate_app_key`, `youdao_translate_app_secret`
+
+### 状态管理
+
+使用 Zustand (`src/store/appStore.ts`) 管理全局状态:
+- `ocrText`: OCR 识别文本
+- `translatedText`: 翻译结果
+- `imageData`: 截图 base64 数据
 
 ### 关键依赖
-- **electron**: ^28.2.0 - 桌面应用框架
-- **react**: ^18.2.0 + TypeScript - UI 框架
-- **vite**: ^5.1.0 - 渲染进程构建工具
-- **tesseract.js**: ^5.0.5 - OCR 文字识别
-- **@azure-rest/ai-translation-text**: ^1.0.0 - 微软翻译 API
-- **zustand**: ^4.5.0 - 轻量级状态管理
 
-### 通信流程
-1. 用户按下 Alt+S → 主进程捕获截图
-2. 截图数据通过 IPC 发送到渲染进程
-3. 渲染进程调用 ocrService 进行 OCR 识别
-4. 识别结果调用 translationService 翻译
-5. 结果存储到 imageManager (localStorage)
-6. 显示翻译结果
+| 依赖 | 版本 | 用途 |
+|------|------|------|
+| electron | ^28.2.0 | 桌面应用框架 |
+| react | ^18.2.0 | UI 框架 |
+| vite | ^5.1.0 | 渲染进程构建 |
+| tesseract.js | ^5.0.5 | OCR 文字识别 |
+| zustand | ^4.5.0 | 状态管理 |
 
-## 配置翻译 API
+## 文件结构要点
 
-需要配置微软 Azure 翻译 API:
-- 在 SettingsPanel 中输入 API Key、Region 和 Endpoint
-- 或设置环境变量: TRANSLATOR_API_KEY, TRANSLATOR_REGION, TRANSLATOR_ENDPOINT
+```
+src/
+├── main.ts              # Electron 主进程入口
+├── preload.ts           # 预加载脚本，暴露 IPC API
+├── renderer.tsx         # 渲染进程入口
+├── App.tsx              # 主应用组件
+├── components/
+│   ├── ScreenshotTool.tsx   # 截图交互组件
+│   └── SettingsPanel.tsx    # API 配置面板
+├── services/
+│   ├── ocrService.ts        # Tesseract.js OCR
+│   ├── translationService.ts # 多引擎翻译
+│   └── imageManager.ts      # localStorage 历史管理
+├── store/appStore.ts        # Zustand 状态
+└── i18n/                    # 国际化 (中文)
+```
+
+## 配置 API
+
+在应用设置面板或通过环境变量配置:
+- Microsoft: `TRANSLATOR_API_KEY`, `TRANSLATOR_REGION`, `TRANSLATOR_ENDPOINT`

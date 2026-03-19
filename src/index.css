@@ -1,16 +1,59 @@
+:root {
+  --bg-color: #f5f5f5;
+  --container-bg: white;
+  --text-color: #333;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --border-color: #ddd;
+  --border-light: #eee;
+  --primary-color: #4CAF50;
+  --primary-hover: #45a049;
+  --secondary-color: #2196F3;
+  --secondary-hover: #0b7dda;
+  --error-color: #f44336;
+  --info-bg: #e3f2fd;
+  --info-border: #2196f3;
+  --info-text: #0d47a1;
+  --result-bg: #f9f9f9;
+  --button-bg: #f0f0f0;
+  --button-border: #ccc;
+}
+
+[data-theme="dark"] {
+  --bg-color: #1a1a1a;
+  --container-bg: #2d2d2d;
+  --text-color: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  --border-color: #404040;
+  --border-light: #333;
+  --primary-color: #66BB6A;
+  --primary-hover: #4CAF50;
+  --secondary-color: #42A5F5;
+  --secondary-hover: #2196F3;
+  --error-color: #ef5350;
+  --info-bg: #1e3a5f;
+  --info-border: #42A5F5;
+  --info-text: #90caf9;
+  --result-bg: #333;
+  --button-bg: #404040;
+  --button-border: #555;
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f5f5f5;
+  background-color: var(--bg-color);
+  color: var(--text-color);
 }
 
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  background-color: white;
+  background-color: var(--container-bg);
   min-height: 100vh;
 }
 
@@ -20,12 +63,12 @@ body {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .app-header h1 {
   margin: 0;
-  color: #333;
+  color: var(--text-color);
 }
 
 .app-controls {
@@ -35,14 +78,15 @@ body {
 
 .app-controls button {
   padding: 8px 16px;
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
+  background-color: var(--button-bg);
+  border: 1px solid var(--button-border);
   border-radius: 4px;
   cursor: pointer;
+  color: var(--text-color);
 }
 
 .app-controls button.active {
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   color: white;
 }
 
@@ -52,7 +96,7 @@ body {
 }
 
 .screenshot-tool button {
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   border: none;
   color: white;
   padding: 15px 32px;
@@ -66,7 +110,7 @@ body {
 }
 
 .screenshot-tool button:hover {
-  background-color: #45a049;
+  background-color: var(--primary-hover);
 }
 
 .screenshot-tool button:disabled {
@@ -77,10 +121,10 @@ body {
 .processing-indicator {
   margin: 10px 0;
   padding: 10px;
-  background-color: #e3f2fd;
-  border: 1px solid #2196f3;
+  background-color: var(--info-bg);
+  border: 1px solid var(--info-border);
   border-radius: 4px;
-  color: #0d47a1;
+  color: var(--info-text);
 }
 
 .screenshot-preview {
@@ -89,16 +133,16 @@ body {
 
 .screenshot-preview img {
   max-width: 100%;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
 .result-container {
   margin-top: 30px;
   padding: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background-color: #f9f9f9;
+  background-color: var(--result-bg);
 }
 
 .result-actions {
@@ -108,7 +152,7 @@ body {
 
 .result-actions button {
   padding: 8px 16px;
-  background-color: #2196F3;
+  background-color: var(--secondary-color);
   color: white;
   border: none;
   border-radius: 4px;
@@ -116,7 +160,7 @@ body {
 }
 
 .result-actions button:hover {
-  background-color: #0b7dda;
+  background-color: var(--secondary-hover);
 }
 
 .ocr-section, .translation-section {
@@ -125,13 +169,13 @@ body {
 
 .ocr-section h2, .translation-section h2 {
   margin-top: 0;
-  color: #333;
-  border-bottom: 1px solid #eee;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-light);
   padding-bottom: 5px;
 }
 
 .ocr-section p, .translation-section p {
-  background-color: white;
+  background-color: var(--container-bg);
   padding: 15px;
   border-radius: 4px;
   white-space: pre-wrap;
@@ -145,7 +189,7 @@ body {
 
 .history-panel h2 {
   margin-top: 0;
-  color: #333;
+  color: var(--text-color);
 }
 
 .history-actions {
@@ -165,8 +209,8 @@ body {
   align-items: center;
   padding: 15px;
   margin-bottom: 10px;
-  background-color: white;
-  border: 1px solid #ddd;
+  background-color: var(--container-bg);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
@@ -176,16 +220,16 @@ body {
 
 .history-content h3 {
   margin: 0 0 5px 0;
-  color: #333;
+  color: var(--text-color);
 }
 
 .history-content p {
   margin: 5px 0;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .history-content small {
-  color: #999;
+  color: var(--text-muted);
 }
 
 .history-actions {
@@ -197,27 +241,28 @@ body {
 .history-actions button {
   padding: 6px 12px;
   margin: 2px 0;
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
+  background-color: var(--button-bg);
+  border: 1px solid var(--button-border);
   border-radius: 4px;
   cursor: pointer;
+  color: var(--text-color);
 }
 
 .history-actions button:hover {
-  background-color: #e0e0e0;
+  background-color: var(--border-color);
 }
 
 .settings-panel {
   margin-top: 20px;
   padding: 20px;
-  background-color: white;
-  border: 1px solid #ddd;
+  background-color: var(--container-bg);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
 .settings-panel h2 {
   margin-top: 0;
-  color: #333;
+  color: var(--text-color);
 }
 
 .setting-group {
@@ -226,8 +271,8 @@ body {
 
 .setting-group h3 {
   margin-top: 0;
-  color: #555;
-  border-bottom: 1px solid #eee;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light);
   padding-bottom: 5px;
 }
 
@@ -247,9 +292,11 @@ body {
 .setting-item input[type="password"],
 .setting-item select {
   padding: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   flex: 1;
+  background-color: var(--container-bg);
+  color: var(--text-color);
 }
 
 .setting-item input[type="range"] {
@@ -273,7 +320,7 @@ body {
 
 .setting-actions button {
   padding: 10px 20px;
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 4px;
@@ -281,7 +328,7 @@ body {
 }
 
 .setting-actions button:nth-child(2) {
-  background-color: #f44336;
+  background-color: var(--error-color);
 }
 
 .setting-actions button:hover {
@@ -293,8 +340,90 @@ body {
   top: 20px;
   right: 20px;
   padding: 15px 20px;
-  background-color: #4CAF50;
+  background-color: var(--primary-color);
   color: white;
   border-radius: 4px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* 进度条样式 */
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: var(--border-light);
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-percentage {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* 按钮组样式 */
+.button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.primary-button {
+  background-color: var(--primary-color) !important;
+}
+
+.secondary-button {
+  background-color: var(--button-bg) !important;
+  color: var(--text-color) !important;
+}
+
+/* 错误消息样式 */
+.error-message {
+  margin: 10px 0;
+  padding: 10px 15px;
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid var(--error-color);
+  border-radius: 4px;
+  color: var(--error-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--error-color);
+  padding: 0 5px;
+}
+
+/* 快捷键状态提示 */
+.shortcut-status {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.shortcut-status.success {
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+}
+
+.shortcut-status.warning {
+  background-color: rgba(255, 152, 0, 0.1);
+  border: 1px solid #ff9800;
+  color: #e65100;
 }

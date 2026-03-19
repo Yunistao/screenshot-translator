@@ -3,12 +3,6 @@ import { useAppStore } from '../store/appStore';
 import { PinWindowData } from '../types/electron';
 import './PinWindow.css';
 
-interface PinWindowState {
-  imageData: string;
-  ocrText: string;
-  translatedText: string;
-}
-
 const PinWindow: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<PinWindowData | null>(null);
@@ -24,12 +18,11 @@ const PinWindow: React.FC = () => {
   const {
     setOcrText,
     setTranslatedText,
-    languagePair,
   } = useAppStore();
 
   // 监听置顶窗口数据
   useEffect(() => {
-    const handlePinWindowData = (_event: any, windowData: PinWindowData) => {
+    const handlePinWindowData = (windowData: PinWindowData) => {
       setData(windowData);
     };
 

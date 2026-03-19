@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useI18n } from '../i18n/I18nContext';
-import { performOCR } from '../services/ocrService';
-import { translateText } from '../services/translationService';
 
 // 设置接口
 interface Settings {
@@ -46,9 +44,8 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 const ScreenshotTool: React.FC = () => {
-  const { setOcrText, setTranslatedText, setImageData, setIsProcessing } = useAppStore();
+  const { setIsProcessing } = useAppStore();
   const [isSelecting, setIsSelecting] = useState(false);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [processingProgress, setProcessingProgress] = useState<string>('');
   const [progressPercentage, setProgressPercentage] = useState(0);
@@ -56,6 +53,38 @@ const ScreenshotTool: React.FC = () => {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [shortcutStatus, setShortcutStatus] = useState<{ registered: boolean; shortcut: string }>({ registered: false, shortcut: '' });
   const { tNested } = useI18n();
+
+  // 清除错误信息
+  const clearError = useCallback(() => {
+    setErrorMessage(null);
+  }, []);
+
+  // 打开截图覆盖窗口
+  const startScreenshot = useCallback(async () => {
+    clearError();
+
+    // 检查 Electron API 是否可用
+    if (!window.electronAPI?.openScreenshotOverlay) {
+      const errorMsg = '截图功能不可用：请确保在 Electron 环境中运行此应用';
+      console.error(errorMsg);
+      setErrorMessage(errorMsg);
+      setTimeout(clearError, 5000);
+      return;
+    }
+
+    // 打开截图覆盖窗口
+    await window.electronAPI.openScreenshotOverlay();
+  }, [clearError]);
+
+  // 取消截图操作
+  const cancelScreenshot = useCallback(() => {
+    setLoading(false);
+    setIsSelecting(false);
+    setProcessingProgress('');
+    setProgressPercentage(0);
+    setErrorMessage('操作已取消');
+    setTimeout(clearError, 2000);
+  }, [clearError]);
 
   // 加载设置并检查 Electron API
   useEffect(() => {
@@ -85,115 +114,6 @@ const ScreenshotTool: React.FC = () => {
     }
   }, []);
 
-  // 清除错误信息
-  const clearError = useCallback(() => {
-    setErrorMessage(null);
-  }, []);
-
-  // 真实截图功能
-  const captureScreenshotFromMain = useCallback(async () => {
-    clearError();
-
-    // 检查 Electron API 是否可用
-    if (!window.electronAPI?.requestScreenshot) {
-      const errorMsg = '截图功能不可用：请确保在 Electron 环境中运行此应用';
-      console.error(errorMsg);
-      setErrorMessage(errorMsg);
-      setTimeout(clearError, 5000);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setIsProcessing(true);
-      setProcessingProgress(tNested('screenshot.processingProgress.getting'));
-      setProgressPercentage(10);
-
-      // 1. 真实截图
-      const screenshotData = await window.electronAPI.requestScreenshot();
-      if (!screenshotData) {
-        throw new Error('截图失败：无法获取屏幕图像');
-      }
-
-      setScreenshot(screenshotData);
-      setImageData(screenshotData);
-      setProgressPercentage(30);
-
-      // 2. 真实 OCR
-      setProcessingProgress(tNested('screenshot.processingProgress.ocr'));
-      const ocrResult = await performOCR(screenshotData, settings.ocrLanguage);
-
-      if (!ocrResult || ocrResult.trim() === '') {
-        throw new Error('OCR识别失败：未检测到文字');
-      }
-
-      setOcrText(ocrResult);
-      setProgressPercentage(60);
-
-      // 3. 真实翻译
-      setProcessingProgress(tNested('screenshot.processingProgress.translating'));
-      const translated = await translateText(
-        ocrResult,
-        settings.sourceLanguage,
-        settings.targetLanguage,
-        settings.translatorEngine
-      );
-
-      setTranslatedText(translated);
-      setProgressPercentage(100);
-      setProcessingProgress(tNested('screenshot.processingProgress.completed'));
-
-      // 自动复制到剪贴板
-      if (settings.autoCopy && navigator.clipboard) {
-        await navigator.clipboard.writeText(translated);
-      }
-
-      // 延迟清除进度信息
-      setTimeout(() => {
-        setProcessingProgress('');
-        setProgressPercentage(0);
-      }, 1000);
-
-    } catch (error) {
-      console.error('截图或处理失败:', error);
-      setProcessingProgress('');
-      setProgressPercentage(0);
-
-      const errorMsg = error instanceof Error ? error.message : tNested('screenshot.captureFailed');
-      setErrorMessage(errorMsg);
-      setTimeout(clearError, 5000);
-    } finally {
-      setLoading(false);
-      setIsProcessing(false);
-      setIsSelecting(false);
-    }
-  }, [setOcrText, setTranslatedText, setImageData, setIsProcessing, tNested, clearError, settings]);
-
-  // 取消截图操作
-  const cancelScreenshot = useCallback(() => {
-    setLoading(false);
-    setIsSelecting(false);
-    setProcessingProgress('');
-    setProgressPercentage(0);
-    setErrorMessage('操作已取消');
-    setTimeout(clearError, 2000);
-  }, [clearError]);
-
-  // 监听全局快捷键（来自主进程）
-  useEffect(() => {
-    const handleScreenshotRequest = () => {
-      if (!loading && !isSelecting) {
-        captureScreenshotFromMain();
-      }
-    };
-
-    window.electronAPI?.onScreenshotRequest?.(handleScreenshotRequest);
-
-    return () => {
-      window.electronAPI?.offScreenshotRequest?.();
-    };
-  }, [captureScreenshotFromMain, loading, isSelecting]);
-
   // 注册本地键盘事件处理器（备用）
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -217,20 +137,9 @@ const ScreenshotTool: React.FC = () => {
     };
   }, [startScreenshot, cancelScreenshot, loading, isSelecting]);
 
-  const startScreenshot = async () => {
-    clearError();
-
-    // 检查 Electron API 是否可用
-    if (!window.electronAPI?.openScreenshotOverlay) {
-      const errorMsg = '截图功能不可用：请确保在 Electron 环境中运行此应用';
-      console.error(errorMsg);
-      setErrorMessage(errorMsg);
-      setTimeout(clearError, 5000);
-      return;
-    }
-
-    // 打开截图覆盖窗口
-    await window.electronAPI.openScreenshotOverlay();
+  const handleClickStart = async () => {
+    setIsSelecting(true);
+    await startScreenshot();
   };
 
   return (
@@ -247,7 +156,7 @@ const ScreenshotTool: React.FC = () => {
 
       <div className="button-group">
         <button
-          onClick={startScreenshot}
+          onClick={handleClickStart}
           disabled={isSelecting || loading}
           className="primary-button"
         >
@@ -267,8 +176,8 @@ const ScreenshotTool: React.FC = () => {
         <div className="processing-indicator">
           <div className="progress-text">{processingProgress}</div>
           <div className="progress-bar-container">
-            <div 
-              className="progress-bar" 
+            <div
+              className="progress-bar"
               style={{ width: `${progressPercentage}%` }}
             ></div>
           </div>
@@ -280,13 +189,6 @@ const ScreenshotTool: React.FC = () => {
         <div className="error-message">
           {errorMessage}
           <button onClick={clearError} className="error-close">×</button>
-        </div>
-      )}
-
-      {screenshot && (
-        <div className="screenshot-preview">
-          <h3>{tNested('screenshot.start')}:</h3>
-          <img src={screenshot} alt="Screenshot preview" />
         </div>
       )}
     </div>

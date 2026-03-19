@@ -20,7 +20,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const {
     annotations,
     addAnnotation,
-    removeAnnotation,
     clearAnnotations,
     annotationColor,
     setAnnotationColor,
