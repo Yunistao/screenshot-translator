@@ -1,13 +1,13 @@
 // Electron API 类型声明
 
-interface ShortcutStatus {
+export interface ShortcutStatus {
   registered: boolean;
   shortcut: string;
   error?: string;
 }
 
 // 截图区域
-interface SelectionArea {
+export interface SelectionArea {
   x: number;
   y: number;
   width: number;
@@ -15,10 +15,10 @@ interface SelectionArea {
 }
 
 // 标注类型
-type AnnotationType = 'rectangle' | 'arrow' | 'brush' | 'text';
+export type AnnotationType = 'rectangle' | 'arrow' | 'brush' | 'text';
 
 // 标注数据
-interface Annotation {
+export interface Annotation {
   id: string;
   type: AnnotationType;
   color: string;
@@ -33,13 +33,13 @@ interface Annotation {
 }
 
 // 语言对
-interface LanguagePair {
+export interface LanguagePair {
   source: string;
   target: string;
 }
 
 // LLM 配置
-interface LLMConfig {
+export interface LLMConfig {
   provider: 'openai' | 'claude' | 'gemini';
   apiKey: string;
   baseUrl?: string;
