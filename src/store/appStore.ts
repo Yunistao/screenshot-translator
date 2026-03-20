@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SelectionArea, Annotation, LanguagePair, LLMConfig } from '../types/electron';
+import { SelectionArea, Annotation, LanguagePair, LLMConfig, OCRLine } from '../types/electron';
 
 interface AppState {
   // OCR 和翻译结果
@@ -31,6 +31,14 @@ interface AppState {
 
   // 置顶窗口状态
   isPinned: boolean;
+
+  // 翻译结果显示状态
+  showTranslationResult: boolean;
+
+  // OCR 行级数据
+  ocrLines: OCRLine[];
+  setOcrLines: (lines: OCRLine[]) => void;
+  updateOcrLineTranslation: (index: number, translatedText: string) => void;
 
   // OCR 和翻译结果操作
   setOcrText: (text: string) => void;
@@ -64,6 +72,9 @@ interface AppState {
 
   // 置顶窗口操作
   setIsPinned: (pinned: boolean) => void;
+
+  // 翻译结果显示操作
+  setShowTranslationResult: (show: boolean) => void;
 
   // 清除所有状态
   clearAll: () => void;
@@ -99,6 +110,19 @@ export const useAppStore = create<AppState>((set) => ({
 
   // 置顶窗口状态
   isPinned: false,
+
+  // 翻译结果显示状态
+  showTranslationResult: false,
+
+  // OCR 行级数据
+  ocrLines: [],
+  setOcrLines: (lines) => set({ ocrLines: lines }),
+  updateOcrLineTranslation: (index, translatedText) =>
+    set((state) => ({
+      ocrLines: state.ocrLines.map((line, i) =>
+        i === index ? { ...line, translatedText } : line
+      ),
+    })),
 
   // OCR 和翻译结果操作
   setOcrText: (text) => set({ ocrText: text }),
@@ -141,10 +165,14 @@ export const useAppStore = create<AppState>((set) => ({
   // 置顶窗口操作
   setIsPinned: (pinned) => set({ isPinned: pinned }),
 
+  // 翻译结果显示操作
+  setShowTranslationResult: (show) => set({ showTranslationResult: show }),
+
   // 清除所有状态
   clearAll: () => set({
     ocrText: '',
     translatedText: '',
+    ocrLines: [],
     imageData: null,
     isProcessing: false,
     error: null,
@@ -153,6 +181,7 @@ export const useAppStore = create<AppState>((set) => ({
     screenshotImage: null,
     annotations: [],
     showToolbar: false,
-    isPinned: false
+    isPinned: false,
+    showTranslationResult: false
   }),
 }));

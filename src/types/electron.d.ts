@@ -53,6 +53,25 @@ export interface PinWindowData {
   translatedText: string;
 }
 
+// OCR 文字行（包含位置信息）
+export interface OCRLine {
+  text: string;
+  bbox: {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  };
+  translatedText?: string;
+}
+
+// OCR 结果（包含行级位置）
+export interface OCRResult {
+  text: string;
+  lines: OCRLine[];
+  confidence: number;
+}
+
 interface ElectronAPI {
   // 截图相关
   onScreenshotRequest: (callback: () => void) => void;
