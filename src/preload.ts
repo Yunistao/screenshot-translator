@@ -13,8 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Screenshot overlay related
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
+  minimizeCurrentWindow: () => ipcRenderer.invoke('minimize-current-window'),
   openScreenshotOverlay: () => ipcRenderer.invoke('open-screenshot-overlay'),
   closeScreenshotOverlay: () => ipcRenderer.invoke('close-screenshot-overlay'),
+  getScreenshotOverlayStatus: () => ipcRenderer.invoke('get-screenshot-overlay-status'),
+  onScreenshotOverlayStatus: (callback: (status: { active: boolean }) => void) =>
+    ipcRenderer.on('screenshot-overlay-status', (_event, status) => callback(status)),
+  offScreenshotOverlayStatus: () => ipcRenderer.removeAllListeners('screenshot-overlay-status'),
   onScreenshotCaptured: (callback: (imageData: string) => void) =>
     ipcRenderer.on('screenshot-captured', (_event, imageData) => callback(imageData)),
   offScreenshotCaptured: () => ipcRenderer.removeAllListeners('screenshot-captured'),
@@ -46,6 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('close-pin-window', windowId),
   closeCurrentWindow: () =>
     ipcRenderer.invoke('close-current-window'),
+  moveCurrentWindow: (x: number, y: number) =>
+    ipcRenderer.invoke('move-current-window', x, y),
   onPinWindowData: (callback: (data: { imageData: string; ocrText: string; translatedText: string }) => void) =>
     ipcRenderer.on('pin-window-data', (_event, data) => callback(data)),
   offPinWindowData: () => ipcRenderer.removeAllListeners('pin-window-data'),

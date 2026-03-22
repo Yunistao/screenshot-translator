@@ -6,6 +6,10 @@ export interface ShortcutStatus {
   error?: string;
 }
 
+export interface ScreenshotOverlayStatus {
+  active: boolean;
+}
+
 // 截图区域
 export interface SelectionArea {
   x: number;
@@ -49,8 +53,8 @@ export interface LLMConfig {
 // 置顶窗口数据
 export interface PinWindowData {
   imageData: string;
-  ocrText: string;
-  translatedText: string;
+  ocrText?: string;
+  translatedText?: string;
 }
 
 // OCR 文字行（包含位置信息）
@@ -82,8 +86,12 @@ interface ElectronAPI {
 
   // 截图覆盖窗口相关
   captureScreen: () => Promise<string | null>;
+  minimizeCurrentWindow: () => Promise<boolean>;
   openScreenshotOverlay: () => Promise<boolean>;
   closeScreenshotOverlay: () => Promise<void>;
+  getScreenshotOverlayStatus: () => Promise<ScreenshotOverlayStatus>;
+  onScreenshotOverlayStatus: (callback: (status: ScreenshotOverlayStatus) => void) => void;
+  offScreenshotOverlayStatus: () => void;
   onScreenshotCaptured: (callback: (imageData: string) => void) => void;
   offScreenshotCaptured: () => void;
   getOverlayScreenshot: () => Promise<string | null>;
@@ -107,6 +115,7 @@ interface ElectronAPI {
   setAlwaysOnTop: (windowId: number, alwaysOnTop: boolean) => Promise<boolean>;
   closePinWindow: (windowId: number) => Promise<boolean>;
   closeCurrentWindow: () => Promise<boolean>;
+  moveCurrentWindow: (x: number, y: number) => Promise<boolean>;
   onPinWindowData: (callback: (data: PinWindowData) => void) => void;
   offPinWindowData: () => void;
 }

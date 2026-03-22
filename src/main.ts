@@ -1,12 +1,124 @@
-import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, globalShortcut, screen } from 'electron';
+﻿import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, globalShortcut, nativeImage, screen } from 'electron';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
 let screenshotOverlayWindow: BrowserWindow | null = null;
 let pinWindows: Set<BrowserWindow> = new Set();
+let screenshotOverlayActive = false;
+let overlayEscapeShortcutRegistered = false;
+let shouldRestoreMainWindowAfterScreenshot = false;
 
-// 判断是否为开发模式
+// 鍒ゆ柇鏄惁涓哄紑鍙戞ā寮?
 const isDev = () => process.env.NODE_ENV === 'development' || !app.isPackaged;
+const shouldOpenDevTools = () =>
+  isDev() && process.env.ENABLE_DEVTOOLS === '1' && process.env.DISABLE_DEVTOOLS !== '1';
+const isE2EMockOverlay = () => process.env.E2E_MOCK_OVERLAY === '1';
+const MOCK_SCREENSHOT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9oN2l6sAAAAASUVORK5CYII=';
+const OVERLAY_ESC_SHORTCUT = 'Escape';
+
+function registerOverlayEscapeShortcut() {
+  if (overlayEscapeShortcutRegistered) {
+    return;
+  }
+
+  const success = globalShortcut.register(OVERLAY_ESC_SHORTCUT, () => {
+    if (screenshotOverlayActive) {
+      closeScreenshotOverlayWindow();
+    }
+  });
+
+  if (success) {
+    overlayEscapeShortcutRegistered = true;
+  } else {
+    console.warn('Esc shortcut registration failed for screenshot overlay fallback.');
+  }
+}
+
+function unregisterOverlayEscapeShortcut() {
+  if (!overlayEscapeShortcutRegistered) {
+    return;
+  }
+
+  globalShortcut.unregister(OVERLAY_ESC_SHORTCUT);
+  overlayEscapeShortcutRegistered = false;
+}
+
+function setScreenshotOverlayActive(active: boolean) {
+  screenshotOverlayActive = active;
+
+  if (active) {
+    registerOverlayEscapeShortcut();
+  } else {
+    unregisterOverlayEscapeShortcut();
+  }
+
+  mainWindow?.webContents.send('screenshot-overlay-status', { active });
+}
+
+function minimizeWindowForScreenshot(targetWindow: BrowserWindow | null) {
+  if (!targetWindow || targetWindow.isDestroyed()) {
+    return;
+  }
+
+  if (!targetWindow.isMinimized()) {
+    shouldRestoreMainWindowAfterScreenshot = true;
+    targetWindow.minimize();
+    setImmediate(() => {
+      if (
+        shouldRestoreMainWindowAfterScreenshot &&
+        targetWindow &&
+        !targetWindow.isDestroyed() &&
+        !targetWindow.isMinimized() &&
+        targetWindow.isVisible()
+      ) {
+        targetWindow.hide();
+      }
+    });
+  }
+}
+
+function minimizeMainWindowForScreenshot() {
+  minimizeWindowForScreenshot(mainWindow);
+}
+
+function restoreMainWindowAfterScreenshot() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    shouldRestoreMainWindowAfterScreenshot = false;
+    return;
+  }
+
+  if (!shouldRestoreMainWindowAfterScreenshot) {
+    return;
+  }
+
+  shouldRestoreMainWindowAfterScreenshot = false;
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  mainWindow.focus();
+  mainWindow.webContents.focus();
+}
+
+function closeScreenshotOverlayWindow() {
+  if (screenshotOverlayWindow) {
+    screenshotOverlayWindow.close();
+    return;
+  }
+  setScreenshotOverlayActive(false);
+}
+
+function openScreenshotOverlayWithImage(imageData: string) {
+  createScreenshotOverlayWindow();
+  screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
+    screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
+  });
+}
 
 function createWindow() {
   console.log('Creating window...');
@@ -22,14 +134,14 @@ function createWindow() {
     show: true
   });
 
-  // 加载渲染进程
+  // 鍔犺浇娓叉煋杩涚▼
   console.log('Loading renderer process...');
 
-  // 开发模式：加载 Vite 开发服务器
-  // 生产模式：加载构建后的静态文件
+  // 寮€鍙戞ā寮忥細鍔犺浇 Vite 寮€鍙戞湇鍔″櫒
+  // 鐢熶骇妯″紡锛氬姞杞芥瀯寤哄悗鐨勯潤鎬佹枃浠?
 
   if (isDev()) {
-    // 等待 Vite 开发服务器启动
+    // 绛夊緟 Vite 寮€鍙戞湇鍔″櫒鍚姩
     const viteUrl = 'http://localhost:5173';
     console.log(`Loading Vite dev server: ${viteUrl}`);
     mainWindow.loadURL(viteUrl);
@@ -37,38 +149,40 @@ function createWindow() {
     mainWindow.loadFile('index.html');
   }
 
-  // 开发环境下打开开发者工具
-  mainWindow.webContents.openDevTools();
+  // 寮€鍙戠幆澧冧笅鎵撳紑寮€鍙戣€呭伐鍏?
+  if (shouldOpenDevTools()) {
+    mainWindow.webContents.openDevTools();
+  }
 
-  // 监听窗口关闭事件
+  // 鐩戝惉绐楀彛鍏抽棴浜嬩欢
   mainWindow.on('closed', () => {
     console.log('Window closed');
     mainWindow = null;
   });
 
-  // 设置中文菜单
+  // 璁剧疆涓枃鑿滃崟
   console.log('Setting up menu...');
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: '文件',
+      label: '鏂囦欢',
       submenu: [
         {
-          label: '退出',
+          label: '閫€鍑?',
           accelerator: 'Ctrl+Q',
           click: () => app.quit()
         }
       ]
     },
     {
-      label: '编辑',
+      label: '缂栬緫',
       submenu: [
         {
-          label: '撤销',
+          label: '鎾ら攢',
           accelerator: 'Ctrl+Z',
           role: 'undo'
         },
         {
-          label: '重做',
+          label: '閲嶅仛',
           accelerator: 'Ctrl+Y',
           role: 'redo'
         },
@@ -76,37 +190,37 @@ function createWindow() {
           type: 'separator'
         },
         {
-          label: '剪切',
+          label: '鍓垏',
           accelerator: 'Ctrl+X',
           role: 'cut'
         },
         {
-          label: '复制',
+          label: '澶嶅埗',
           accelerator: 'Ctrl+C',
           role: 'copy'
         },
         {
-          label: '粘贴',
+          label: '绮樿创',
           accelerator: 'Ctrl+V',
           role: 'paste'
         },
         {
-          label: '全选',
+          label: '鍏ㄩ€?',
           accelerator: 'Ctrl+A',
           role: 'selectAll'
         }
       ]
     },
     {
-      label: '查看',
+      label: '鏌ョ湅',
       submenu: [
         {
-          label: '重新加载',
+          label: '閲嶆柊鍔犺浇',
           accelerator: 'Ctrl+R',
           click: () => mainWindow?.reload()
         },
         {
-          label: '强制重新加载',
+          label: '寮哄埗閲嶆柊鍔犺浇',
           accelerator: 'Ctrl+Shift+R',
           click: () => mainWindow?.webContents.reloadIgnoringCache()
         },
@@ -114,34 +228,34 @@ function createWindow() {
           type: 'separator'
         },
         {
-          label: '开发者工具',
+          label: '寮€鍙戣€呭伐鍏?',
           accelerator: 'Ctrl+Shift+I',
           click: () => mainWindow?.webContents.toggleDevTools()
         }
       ]
     },
     {
-      label: '窗口',
+      label: '绐楀彛',
       submenu: [
         {
-          label: '最小化',
+          label: '鏈€灏忓寲',
           accelerator: 'Ctrl+M',
           role: 'minimize'
         },
         {
-          label: '关闭',
+          label: '鍏抽棴',
           accelerator: 'Ctrl+W',
           role: 'close'
         }
       ]
     },
     {
-      label: '帮助',
+      label: '甯姪',
       submenu: [
         {
-          label: '关于',
+          label: '鍏充簬',
           click: () => {
-            // 可以添加关于对话框
+            // 鍙互娣诲姞鍏充簬瀵硅瘽妗?
           }
         }
       ]
@@ -153,12 +267,12 @@ function createWindow() {
   console.log('Window created successfully');
 }
 
-// IPC 处理器：请求全屏截图（支持多显示器）
+// IPC 澶勭悊鍣細璇锋眰鍏ㄥ睆鎴浘锛堟敮鎸佸鏄剧ず鍣級
 ipcMain.handle('request-screenshot', async () => {
   try {
     const displays = screen.getAllDisplays();
 
-    // 计算所有显示器的总边界
+    // 璁＄畻鎵€鏈夋樉绀哄櫒鐨勬€昏竟鐣?
     let maxX = 0;
     let maxY = 0;
 
@@ -169,7 +283,7 @@ ipcMain.handle('request-screenshot', async () => {
       if (displayBottom > maxY) maxY = displayBottom;
     }
 
-    // 使用实际屏幕尺寸而非 workAreaSize
+    // 浣跨敤瀹為檯灞忓箷灏哄鑰岄潪 workAreaSize
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: { width: maxX, height: maxY }
@@ -180,23 +294,23 @@ ipcMain.handle('request-screenshot', async () => {
     }
     return null;
   } catch (error) {
-    console.error('截图失败:', error);
+    console.error('鎴浘澶辫触:', error);
     return null;
   }
 });
 
-// IPC 处理器：区域截图（支持多显示器）
+// IPC 澶勭悊鍣細鍖哄煙鎴浘锛堟敮鎸佸鏄剧ず鍣級
 ipcMain.handle('capture-screenshot', async (_event, x: number, y: number, width: number, height: number) => {
   try {
-    // 参数验证
+    // 鍙傛暟楠岃瘉
     if (width <= 0 || height <= 0) {
-      console.error('区域截图失败: 无效的尺寸参数');
+      console.error('鍖哄煙鎴浘澶辫触: 鏃犳晥鐨勫昂瀵稿弬鏁?');
       return null;
     }
 
     const displays = screen.getAllDisplays();
 
-    // 计算所有显示器的总边界
+    // 璁＄畻鎵€鏈夋樉绀哄櫒鐨勬€昏竟鐣?
     let maxX = 0;
     let maxY = 0;
 
@@ -219,59 +333,62 @@ ipcMain.handle('capture-screenshot', async (_event, x: number, y: number, width:
     }
     return null;
   } catch (error) {
-    console.error('区域截图失败:', error);
+    console.error('鍖哄煙鎴浘澶辫触:', error);
     return null;
   }
 });
 
-// IPC 处理器：更新快捷键
+// IPC 澶勭悊鍣細鏇存柊蹇嵎閿?
 let currentShortcut = '';
 let shortcutRegistered = false;
 
-// 尝试注册快捷键，如果失败则尝试备用快捷键
+// 灏濊瘯娉ㄥ唽蹇嵎閿紝濡傛灉澶辫触鍒欏皾璇曞鐢ㄥ揩鎹烽敭
 function tryRegisterShortcut(shortcutKey: string): boolean {
   try {
-    // 先注销旧快捷键
+    // 鍏堟敞閿€鏃у揩鎹烽敭
     if (currentShortcut) {
       globalShortcut.unregister(currentShortcut);
     }
 
     const success = globalShortcut.register(shortcutKey, async () => {
-      // 打开截图覆盖窗口
+      minimizeMainWindowForScreenshot();
+
+      if (isE2EMockOverlay()) {
+        openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE);
+        return;
+      }
+
       const imageData = await captureScreen();
       if (imageData) {
-        createScreenshotOverlayWindow();
-
-        // 等待窗口加载完成后发送截图数据
-        screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
-          screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
-        });
+        openScreenshotOverlayWithImage(imageData);
+      } else {
+        restoreMainWindowAfterScreenshot();
       }
     });
 
     if (success) {
       currentShortcut = shortcutKey;
       shortcutRegistered = true;
-      console.log(`快捷键注册成功: ${shortcutKey}`);
-      // 通知渲染进程
+      console.log(`蹇嵎閿敞鍐屾垚鍔? ${shortcutKey}`);
+      // 閫氱煡娓叉煋杩涚▼
       mainWindow?.webContents.send('shortcut-status', { registered: true, shortcut: shortcutKey });
       return true;
     } else {
-      console.warn(`快捷键注册失败: ${shortcutKey} (可能被其他应用占用)`);
+      console.warn(`蹇嵎閿敞鍐屽け璐? ${shortcutKey} (鍙兘琚叾浠栧簲鐢ㄥ崰鐢?`);
       shortcutRegistered = false;
-      mainWindow?.webContents.send('shortcut-status', { registered: false, shortcut: shortcutKey, error: '快捷键被其他应用占用' });
+      mainWindow?.webContents.send('shortcut-status', { registered: false, shortcut: shortcutKey, error: '蹇嵎閿鍏朵粬搴旂敤鍗犵敤' });
       return false;
     }
   } catch (error) {
-    console.error('注册快捷键时出错:', error);
+    console.error('娉ㄥ唽蹇嵎閿椂鍑洪敊:', error);
     shortcutRegistered = false;
     return false;
   }
 }
 
-// 注册快捷键，尝试多个备用选项
+// 娉ㄥ唽蹇嵎閿紝灏濊瘯澶氫釜澶囩敤閫夐」
 function registerShortcutWithFallback() {
-  // 优先级列表：尝试多个快捷键
+  // 浼樺厛绾у垪琛細灏濊瘯澶氫釜蹇嵎閿?
   const shortcuts = ['Alt+S', 'Alt+D', 'Ctrl+Shift+S', 'Ctrl+Alt+S'];
 
   for (const shortcut of shortcuts) {
@@ -280,7 +397,7 @@ function registerShortcutWithFallback() {
     }
   }
 
-  console.warn('所有快捷键都注册失败，请手动设置');
+  console.warn('鎵€鏈夊揩鎹烽敭閮芥敞鍐屽け璐ワ紝璇锋墜鍔ㄨ缃?');
   return false;
 }
 
@@ -290,7 +407,7 @@ ipcMain.on('update-shortcut', (_event, shortcutKey: string) => {
   }
 });
 
-// IPC 处理器：查询快捷键状态
+// IPC 澶勭悊鍣細鏌ヨ蹇嵎閿姸鎬?
 ipcMain.handle('get-shortcut-status', () => {
   return {
     registered: shortcutRegistered,
@@ -298,14 +415,14 @@ ipcMain.handle('get-shortcut-status', () => {
   };
 });
 
-// ========== 截图覆盖窗口 ==========
+// ========== 鎴浘瑕嗙洊绐楀彛 ==========
 
-// 捕获屏幕并打开截图覆盖窗口
+// 鎹曡幏灞忓箷骞舵墦寮€鎴浘瑕嗙洊绐楀彛
 async function captureScreen(): Promise<string | null> {
   try {
     const displays = screen.getAllDisplays();
 
-    // 计算所有显示器的总边界
+    // 璁＄畻鎵€鏈夋樉绀哄櫒鐨勬€昏竟鐣?
     let maxX = 0;
     let maxY = 0;
 
@@ -326,14 +443,15 @@ async function captureScreen(): Promise<string | null> {
     }
     return null;
   } catch (error) {
-    console.error('捕获屏幕失败:', error);
+    console.error('鎹曡幏灞忓箷澶辫触:', error);
     return null;
   }
 }
 
-// 创建截图覆盖窗口
+// 鍒涘缓鎴浘瑕嗙洊绐楀彛
 function createScreenshotOverlayWindow() {
   if (screenshotOverlayWindow) {
+    screenshotOverlayWindow.removeAllListeners('closed');
     screenshotOverlayWindow.close();
     screenshotOverlayWindow = null;
   }
@@ -345,10 +463,134 @@ function createScreenshotOverlayWindow() {
     height,
     x: 0,
     y: 0,
+    show: false,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    resizable: false,
+    focusable: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  // 鍔犺浇瑕嗙洊绐楀彛椤甸潰锛堝甫鏈?overlay 鏌ヨ鍙傛暟锛?
+  if (isDev()) {
+    screenshotOverlayWindow.loadURL('http://localhost:5173?overlay=true');
+  } else {
+    screenshotOverlayWindow.loadFile('index.html', { query: { overlay: 'true' } });
+  }
+
+  // 寮€鍙戞ā寮忎笅鎵撳紑寮€鍙戣€呭伐鍏?
+  if (shouldOpenDevTools()) {
+    screenshotOverlayWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  screenshotOverlayWindow.on('closed', () => {
+    screenshotOverlayWindow = null;
+    setScreenshotOverlayActive(false);
+    restoreMainWindowAfterScreenshot();
+  });
+
+  screenshotOverlayWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') {
+      closeScreenshotOverlayWindow();
+    }
+  });
+
+  screenshotOverlayWindow.once('ready-to-show', () => {
+    if (!screenshotOverlayWindow) {
+      return;
+    }
+    screenshotOverlayWindow.show();
+    screenshotOverlayWindow.focus();
+    screenshotOverlayWindow.webContents.focus();
+  });
+
+  // 璁剧疆涓哄彲鐐瑰嚮绌块€忥紙闄や簡鏈夊唴瀹圭殑鍖哄煙锛?
+  screenshotOverlayWindow.setIgnoreMouseEvents(false);
+  setScreenshotOverlayActive(true);
+}
+
+// IPC: 鎹曡幏灞忓箷
+ipcMain.handle('capture-screen', async () => {
+  return await captureScreen();
+});
+
+// IPC: 鎵撳紑鎴浘瑕嗙洊绐楀彛
+ipcMain.handle('open-screenshot-overlay', async () => {
+  minimizeMainWindowForScreenshot();
+
+  if (isE2EMockOverlay()) {
+    openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE);
+    return true;
+  }
+
+  const imageData = await captureScreen();
+  if (imageData) {
+    openScreenshotOverlayWithImage(imageData);
+
+    return true;
+  }
+
+  restoreMainWindowAfterScreenshot();
+  return false;
+});
+
+ipcMain.handle('minimize-current-window', async (event) => {
+  minimizeWindowForScreenshot(BrowserWindow.fromWebContents(event.sender));
+  return true;
+});
+
+// IPC: 鍏抽棴鎴浘瑕嗙洊绐楀彛
+ipcMain.handle('close-screenshot-overlay', () => {
+  closeScreenshotOverlayWindow();
+});
+
+ipcMain.handle('get-screenshot-overlay-status', () => {
+  return { active: screenshotOverlayActive };
+});
+
+// IPC: 鑾峰彇鎴浘瑕嗙洊绐楀彛鐨勬埅鍥炬暟鎹?
+ipcMain.handle('get-overlay-screenshot', async () => {
+  return await captureScreen();
+});
+
+// ========== 缃《绐楀彛 ==========
+
+function getPinWindowSize(imageData: string): { width: number; height: number } {
+  const image = nativeImage.createFromDataURL(imageData);
+  const imageSize = image.getSize();
+  const workArea = screen.getPrimaryDisplay().workAreaSize;
+
+  const maxWidth = Math.max(240, Math.floor(workArea.width * 0.6));
+  const maxHeight = Math.max(160, Math.floor(workArea.height * 0.6));
+  const sourceWidth = Math.max(1, imageSize.width);
+  const sourceHeight = Math.max(1, imageSize.height);
+  const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+
+  return {
+    width: Math.max(180, Math.round(sourceWidth * scale)),
+    height: Math.max(120, Math.round(sourceHeight * scale)),
+  };
+}
+
+// 鍒涘缓缃《绐楀彛
+function createPinWindow(imageData: string, ocrText?: string, translatedText?: string) {
+  const pinSize = getPinWindowSize(imageData);
+
+  const pinWindow = new BrowserWindow({
+    width: pinSize.width,
+    height: pinSize.height,
+    minWidth: 180,
+    minHeight: 120,
+    frame: false,
+    alwaysOnTop: true,
+    transparent: true,
+    backgroundColor: '#00000000',
     resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -357,90 +599,12 @@ function createScreenshotOverlayWindow() {
     },
   });
 
-  // 加载覆盖窗口页面（带有 overlay 查询参数）
-  if (isDev()) {
-    screenshotOverlayWindow.loadURL('http://localhost:5173?overlay=true');
-  } else {
-    screenshotOverlayWindow.loadFile('index.html', { query: { overlay: 'true' } });
-  }
-
-  // 开发模式下打开开发者工具
-  if (isDev()) {
-    screenshotOverlayWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-
-  screenshotOverlayWindow.on('closed', () => {
-    screenshotOverlayWindow = null;
-  });
-
-  // 设置为可点击穿透（除了有内容的区域）
-  screenshotOverlayWindow.setIgnoreMouseEvents(false);
-}
-
-// IPC: 捕获屏幕
-ipcMain.handle('capture-screen', async () => {
-  return await captureScreen();
-});
-
-// IPC: 打开截图覆盖窗口
-ipcMain.handle('open-screenshot-overlay', async () => {
-  const imageData = await captureScreen();
-  if (imageData) {
-    createScreenshotOverlayWindow();
-
-    // 等待窗口加载完成后发送截图数据
-    screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
-      screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
-    });
-
-    return true;
-  }
-  return false;
-});
-
-// IPC: 关闭截图覆盖窗口
-ipcMain.handle('close-screenshot-overlay', () => {
-  if (screenshotOverlayWindow) {
-    screenshotOverlayWindow.close();
-    screenshotOverlayWindow = null;
-  }
-});
-
-// IPC: 获取截图覆盖窗口的截图数据
-ipcMain.handle('get-overlay-screenshot', async () => {
-  return await captureScreen();
-});
-
-// ========== 置顶窗口 ==========
-
-// 创建置顶窗口
-function createPinWindow(imageData: string, ocrText?: string, translatedText?: string) {
-  const pinWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
-    minWidth: 200,
-    minHeight: 150,
-    frame: false,
-    alwaysOnTop: true,
-    resizable: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-
-  // 加载置顶窗口页面（带有 pin 查询参数）
+  // 鍔犺浇缃《绐楀彛椤甸潰锛堝甫鏈?pin 鏌ヨ鍙傛暟锛?
   const params = new URLSearchParams({ pin: 'true' });
   if (isDev()) {
     pinWindow.loadURL(`http://localhost:5173?${params.toString()}`);
   } else {
     pinWindow.loadFile('index.html', { query: { pin: 'true' } });
-  }
-
-  // 开发模式下打开开发者工具
-  if (isDev()) {
-    pinWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
   pinWindow.on('closed', () => {
@@ -449,7 +613,7 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
 
   pinWindows.add(pinWindow);
 
-  // 窗口加载完成后发送数据
+  // 绐楀彛鍔犺浇瀹屾垚鍚庡彂閫佹暟鎹?
   pinWindow.webContents.once('did-finish-load', () => {
     pinWindow.webContents.send('pin-window-data', {
       imageData,
@@ -461,13 +625,13 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
   return pinWindow;
 }
 
-// IPC: 创建置顶窗口
+// IPC: 鍒涘缓缃《绐楀彛
 ipcMain.handle('create-pin-window', async (_event, imageData: string, ocrText?: string, translatedText?: string) => {
   createPinWindow(imageData, ocrText, translatedText);
   return true;
 });
 
-// IPC: 设置窗口置顶
+// IPC: 璁剧疆绐楀彛缃《
 ipcMain.handle('set-always-on-top', async (_event, windowId: number, alwaysOnTop: boolean) => {
   const win = BrowserWindow.fromId(windowId);
   if (win) {
@@ -477,7 +641,7 @@ ipcMain.handle('set-always-on-top', async (_event, windowId: number, alwaysOnTop
   return false;
 });
 
-// IPC: 关闭置顶窗口
+// IPC: 鍏抽棴缃《绐楀彛
 ipcMain.handle('close-pin-window', async (_event, windowId: number) => {
   const win = BrowserWindow.fromId(windowId);
   if (win) {
@@ -487,7 +651,7 @@ ipcMain.handle('close-pin-window', async (_event, windowId: number) => {
   return false;
 });
 
-// IPC: 关闭当前窗口（用于置顶窗口）
+// IPC: 鍏抽棴褰撳墠绐楀彛锛堢敤浜庣疆椤剁獥鍙ｏ級
 ipcMain.handle('close-current-window', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
@@ -497,10 +661,20 @@ ipcMain.handle('close-current-window', async (event) => {
   return false;
 });
 
+ipcMain.handle('move-current-window', async (event, x: number, y: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) {
+    return false;
+  }
+
+  win.setPosition(Math.round(x), Math.round(y), false);
+  return true;
+});
+
 app.whenReady().then(() => {
   createWindow();
 
-  // 注册全局快捷键（带备用选项）
+  // 娉ㄥ唽鍏ㄥ眬蹇嵎閿紙甯﹀鐢ㄩ€夐」锛?
   registerShortcutWithFallback();
 
   app.on('activate', function () {
@@ -509,10 +683,14 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
-  // 注销所有快捷键
+  // 娉ㄩ攢鎵€鏈夊揩鎹烽敭
   globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
+
+
+
+

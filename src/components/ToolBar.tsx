@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { translateText, SUPPORTED_LANGUAGES } from '../services/translationService';
+import { translateText, SUPPORTED_LANGUAGES, type TranslatorEngine } from '../services/translationService';
 import { performOCRWithLines } from '../services/ocrService';
-import { SelectionArea, OCRLine } from '../types/electron';
+import { Annotation, OCRLine, SelectionArea } from '../types/electron';
 import './ToolBar.css';
 
 interface ToolBarProps {
@@ -31,138 +31,28 @@ const ToolBar: React.FC<ToolBarProps> = ({
     setError,
     setShowTranslationResult,
     showTranslationResult,
+    translationDisplayMode,
+    setTranslationDisplayMode,
     setOcrLines,
+    annotations,
   } = useAppStore();
 
   const [isTranslating, setIsTranslating] = useState(false);
-  const [ocrResult, setOcrResult] = useState<string>('');
 
-  // 获取设置中的翻译引擎
-  const getTranslatorEngine = () => {
+  const getTranslatorEngine = (): TranslatorEngine => {
     const stored = localStorage.getItem('screenshotTranslatorSettings');
-    if (stored) {
-      try {
-        const settings = JSON.parse(stored);
-        return settings.translatorEngine || 'microsoft';
-      } catch {
-        return 'microsoft';
-      }
+    if (!stored) {
+      return 'microsoft';
     }
-    return 'microsoft';
-  };
-
-  // 执行 OCR（返回行级数据）
-  const handleOCR = async (): Promise<OCRLine[]> => {
-    if (!screenshotImage || !selectionArea) {
-      console.log('[OCR] 缺少截图数据或选择区域');
-      return [];
-    }
-
-    setIsProcessing(true);
-    setIsTranslating(true);
 
     try {
-      // 裁剪选择的区域
-      const croppedImage = await cropImage(screenshotImage, selectionArea);
-      console.log('[OCR] 裁剪图片完成');
-
-      // 执行 OCR（带行级位置）
-      const result = await performOCRWithLines(croppedImage);
-      console.log('[OCR] OCR 结果:', result.text, '行数:', result.lines.length);
-
-      setOcrText(result.text);
-      setOcrResult(result.text);
-      setOcrLines(result.lines);
-      return result.lines;
-    } catch (error) {
-      console.error('[OCR] OCR 失败:', error);
-      setError('OCR 识别失败');
-      return [];
-    } finally {
-      setIsProcessing(false);
-      setIsTranslating(false);
+      const settings = JSON.parse(stored) as { translatorEngine?: TranslatorEngine };
+      return settings.translatorEngine || 'microsoft';
+    } catch {
+      return 'microsoft';
     }
   };
 
-  // OCR + 翻译一键执行（行级翻译）
-  const handleOCRAndTranslate = async () => {
-    console.log('[翻译] 开始 OCR + 翻译流程');
-    if (!screenshotImage || !selectionArea) {
-      console.log('[翻译] 缺少截图数据或选择区域');
-      return;
-    }
-
-    setIsProcessing(true);
-    setIsTranslating(true);
-
-    try {
-      // 裁剪选择的区域
-      const croppedImage = await cropImage(screenshotImage, selectionArea);
-      console.log('[翻译] 裁剪图片完成');
-
-      // 执行 OCR，获取行级数据
-      const ocrResult = await performOCRWithLines(croppedImage);
-      console.log('[翻译] OCR 识别到', ocrResult.lines.length, '行文字');
-
-      setOcrText(ocrResult.text);
-      setOcrLines(ocrResult.lines);
-
-      if (ocrResult.lines.length === 0) {
-        setError('OCR 未识别到文字');
-        return;
-      }
-
-      // 获取翻译引擎
-      const engine = getTranslatorEngine();
-      console.log('[翻译] 使用引擎:', engine);
-      console.log('[翻译] 语言对:', languagePair.source, '->', languagePair.target);
-
-      // 按行翻译
-      const translatedLines: OCRLine[] = [];
-      for (let i = 0; i < ocrResult.lines.length; i++) {
-        const line = ocrResult.lines[i];
-        console.log(`[翻译] 翻译第 ${i + 1} 行:`, line.text);
-
-        try {
-          const translated = await translateText(
-            line.text,
-            languagePair.source,
-            languagePair.target,
-            engine
-          );
-          translatedLines.push({
-            ...line,
-            translatedText: translated,
-          });
-          console.log(`[翻译] 第 ${i + 1} 行翻译结果:`, translated);
-        } catch (err) {
-          console.error(`[翻译] 第 ${i + 1} 行翻译失败:`, err);
-          translatedLines.push({
-            ...line,
-            translatedText: '[翻译失败]',
-          });
-        }
-      }
-
-      // 更新 store
-      setOcrLines(translatedLines);
-      setTranslatedText(translatedLines.map(l => l.translatedText).join('\n'));
-
-      // 显示翻译结果层
-      setShowTranslationResult(true);
-      if (onTranslationComplete) {
-        onTranslationComplete();
-      }
-    } catch (error) {
-      console.error('[翻译] 翻译流程失败:', error);
-      setError('翻译失败');
-    } finally {
-      setIsProcessing(false);
-      setIsTranslating(false);
-    }
-  };
-
-  // 裁剪图片
   const cropImage = (imageData: string, area: SelectionArea): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -172,49 +62,218 @@ const ToolBar: React.FC<ToolBarProps> = ({
         canvas.height = area.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          reject(new Error('无法获取 canvas context'));
+          reject(new Error('Failed to get canvas context'));
           return;
         }
-        ctx.drawImage(
-          img,
-          area.x, area.y, area.width, area.height,
-          0, 0, area.width, area.height
-        );
+
+        ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, area.width, area.height);
         resolve(canvas.toDataURL('image/png'));
       };
-      img.onerror = () => reject(new Error('图片加载失败'));
+      img.onerror = () => reject(new Error('Failed to load image'));
       img.src = imageData;
     });
   };
 
-  // 置顶图片
-  const handlePin = async () => {
-    if (!screenshotImage || !selectionArea) return;
+  const drawArrow = (
+    ctx: CanvasRenderingContext2D,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ) => {
+    const headLength = 15;
+    const angle = Math.atan2(toY - fromY, toX - fromX);
 
-    const croppedImage = await cropImage(screenshotImage, selectionArea);
-    await window.electronAPI?.createPinWindow(croppedImage, ocrResult, '');
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(
+      toX - headLength * Math.cos(angle - Math.PI / 6),
+      toY - headLength * Math.sin(angle - Math.PI / 6),
+    );
+    ctx.lineTo(
+      toX - headLength * Math.cos(angle + Math.PI / 6),
+      toY - headLength * Math.sin(angle + Math.PI / 6),
+    );
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const drawAnnotations = (
+    ctx: CanvasRenderingContext2D,
+    annotationsToRender: Annotation[],
+    offsetX: number,
+    offsetY: number,
+  ) => {
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const annotation of annotationsToRender) {
+      ctx.strokeStyle = annotation.color;
+      ctx.fillStyle = annotation.color;
+
+      switch (annotation.type) {
+        case 'rectangle':
+          if (
+            annotation.startX !== undefined &&
+            annotation.startY !== undefined &&
+            annotation.endX !== undefined &&
+            annotation.endY !== undefined
+          ) {
+            const x = Math.min(annotation.startX, annotation.endX) - offsetX;
+            const y = Math.min(annotation.startY, annotation.endY) - offsetY;
+            const width = Math.abs(annotation.endX - annotation.startX);
+            const height = Math.abs(annotation.endY - annotation.startY);
+            ctx.strokeRect(x, y, width, height);
+          }
+          break;
+        case 'arrow':
+          if (
+            annotation.startX !== undefined &&
+            annotation.startY !== undefined &&
+            annotation.endX !== undefined &&
+            annotation.endY !== undefined
+          ) {
+            drawArrow(
+              ctx,
+              annotation.startX - offsetX,
+              annotation.startY - offsetY,
+              annotation.endX - offsetX,
+              annotation.endY - offsetY,
+            );
+          }
+          break;
+        case 'brush':
+          if (annotation.points && annotation.points.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(annotation.points[0].x - offsetX, annotation.points[0].y - offsetY);
+            annotation.points.forEach((point) => {
+              ctx.lineTo(point.x - offsetX, point.y - offsetY);
+            });
+            ctx.stroke();
+          }
+          break;
+        case 'text':
+          if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
+            ctx.font = '16px Arial';
+            ctx.fillText(annotation.text, annotation.x - offsetX, annotation.y - offsetY);
+          }
+          break;
+      }
+    }
+  };
+
+  const composePinnedImage = async (imageData: string, area: SelectionArea): Promise<string> => {
+    const croppedImage = await cropImage(imageData, area);
+
+    if (annotations.length === 0) {
+      return croppedImage;
+    }
+
+    const img = new Image();
+    img.src = croppedImage;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to load cropped image'));
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = area.width;
+    canvas.height = area.height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return croppedImage;
+    }
+
+    ctx.drawImage(img, 0, 0, area.width, area.height);
+    drawAnnotations(ctx, annotations, area.x, area.y);
+
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleOCRAndTranslate = async () => {
+    if (!screenshotImage || !selectionArea) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setIsTranslating(true);
+
+    try {
+      const croppedImage = await cropImage(screenshotImage, selectionArea);
+      const ocrResult = await performOCRWithLines(croppedImage);
+
+      setOcrText(ocrResult.text);
+      setOcrLines(ocrResult.lines);
+
+      if (ocrResult.lines.length === 0) {
+        setError('OCR 未识别到文字');
+        return;
+      }
+
+      const engine = getTranslatorEngine();
+      const translatedLines: OCRLine[] = [];
+
+      for (const line of ocrResult.lines) {
+        try {
+          const translated = await translateText(line.text, languagePair.source, languagePair.target, engine);
+          translatedLines.push({
+            ...line,
+            translatedText: translated,
+          });
+        } catch {
+          translatedLines.push({
+            ...line,
+            translatedText: '[翻译失败]',
+          });
+        }
+      }
+
+      setOcrLines(translatedLines);
+      setTranslatedText(translatedLines.map((line) => line.translatedText).join('\n'));
+      setShowTranslationResult(true);
+      onTranslationComplete?.();
+    } catch (error) {
+      console.error('[翻译] OCR + 翻译流程失败:', error);
+      setError('翻译失败');
+    } finally {
+      setIsProcessing(false);
+      setIsTranslating(false);
+    }
+  };
+
+  const handlePin = async () => {
+    if (!screenshotImage || !selectionArea) {
+      return;
+    }
+
+    const pinnedImage = await composePinnedImage(screenshotImage, selectionArea);
+    await window.electronAPI?.createPinWindow(pinnedImage);
     onClose();
   };
 
-  // 复制到剪贴板
   const handleCopy = async () => {
-    if (!screenshotImage || !selectionArea) return;
+    if (!screenshotImage || !selectionArea) {
+      return;
+    }
 
     const croppedImage = await cropImage(screenshotImage, selectionArea);
 
     try {
-      // 将 base64 转换为 blob
       const response = await fetch(croppedImage);
       const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob })
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
     } catch (error) {
       console.error('复制失败:', error);
     }
   };
 
-  // 复制译文到剪贴板
   const handleCopyTranslation = () => {
     const { translatedText } = useAppStore.getState();
     if (translatedText) {
@@ -222,10 +281,13 @@ const ToolBar: React.FC<ToolBarProps> = ({
     }
   };
 
-  // 关闭翻译结果并关闭窗口
   const handleFinish = () => {
     setShowTranslationResult(false);
     onClose();
+  };
+
+  const handleToggleTranslationMode = () => {
+    setTranslationDisplayMode(translationDisplayMode === 'inline' ? 'list' : 'inline');
   };
 
   return (
@@ -237,7 +299,6 @@ const ToolBar: React.FC<ToolBarProps> = ({
       }}
     >
       <div className="toolbar-content">
-        {/* 语言选择 */}
         <div className="language-selector">
           <select
             value={languagePair.source}
@@ -245,67 +306,60 @@ const ToolBar: React.FC<ToolBarProps> = ({
             title="源语言"
           >
             <option value="auto">自动检测</option>
-            {SUPPORTED_LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>{lang.name}</option>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name}
+              </option>
             ))}
           </select>
+
           <span className="arrow">→</span>
+
           <select
             value={languagePair.target}
             onChange={(e) => setLanguagePair({ ...languagePair, target: e.target.value })}
             title="目标语言"
           >
-            {SUPPORTED_LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>{lang.name}</option>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.name}
+              </option>
             ))}
           </select>
         </div>
 
-        {/* 操作按钮 - 根据翻译状态显示不同按钮 */}
         <div className="toolbar-actions">
           {showTranslationResult ? (
-            // 翻译完成后显示的按钮
             <>
-              <button
-                onClick={() => setShowTranslationResult(false)}
-                className="btn-primary"
-                title="重新翻译"
-              >
+              <button onClick={() => setShowTranslationResult(false)} className="btn-primary" title="重新翻译">
                 重译
               </button>
 
-              <button
-                onClick={handleCopyTranslation}
-                title="复制译文"
-              >
+              <button onClick={handleCopyTranslation} title="复制译文">
                 复制译文
               </button>
 
               <button
-                onClick={handlePin}
-                title="置顶截图"
+                data-testid="translation-mode-toggle"
+                onClick={handleToggleTranslationMode}
+                title={translationDisplayMode === 'inline' ? '切换为列表展示' : '切换为原位覆盖'}
               >
+                {translationDisplayMode === 'inline' ? '列表' : '原位'}
+              </button>
+
+              <button data-testid="pin-button" onClick={handlePin} title="置顶截图">
                 置顶
               </button>
 
-              <button
-                onClick={handleFinish}
-                className="btn-primary"
-                title="完成"
-              >
+              <button onClick={handleFinish} className="btn-primary" title="完成">
                 完成
               </button>
 
-              <button
-                onClick={onClose}
-                className="btn-cancel"
-                title="取消 (Esc)"
-              >
+              <button onClick={onClose} className="btn-cancel" title="取消 (Esc)">
                 取消
               </button>
             </>
           ) : (
-            // 默认显示的按钮
             <>
               <button
                 onClick={handleOCRAndTranslate}
@@ -316,40 +370,19 @@ const ToolBar: React.FC<ToolBarProps> = ({
                 {isTranslating ? '处理中...' : '翻译'}
               </button>
 
-              <button
-                onClick={handleOCR}
-                disabled={isTranslating}
-                title="仅 OCR"
-              >
-                OCR
-              </button>
-
-              <button
-                onClick={onStartEdit}
-                title="标注编辑"
-              >
+              <button onClick={onStartEdit} title="标注编辑">
                 编辑
               </button>
 
-              <button
-                onClick={handlePin}
-                title="置顶截图"
-              >
+              <button data-testid="pin-button" onClick={handlePin} title="置顶截图">
                 置顶
               </button>
 
-              <button
-                onClick={handleCopy}
-                title="复制到剪贴板"
-              >
+              <button onClick={handleCopy} title="复制到剪贴板">
                 复制
               </button>
 
-              <button
-                onClick={onClose}
-                className="btn-cancel"
-                title="取消 (Esc)"
-              >
+              <button onClick={onClose} className="btn-cancel" title="取消 (Esc)">
                 取消
               </button>
             </>

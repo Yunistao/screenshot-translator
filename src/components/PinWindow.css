@@ -1,180 +1,102 @@
-.pin-window {
-  position: fixed;
-  background: #2d2d2d;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-  min-height: 150px;
-}
-
-.pin-window.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 200px;
-  height: 100px;
-  color: #fff;
-}
-
-.pin-window.minimized {
-  width: auto !important;
-  height: auto !important;
-}
-
-/* 标题栏 */
-.pin-titlebar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #1a1a1a;
-  padding: 6px 10px;
-  cursor: move;
-  user-select: none;
-}
-
-.pin-title {
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.pin-controls {
-  display: flex;
-  gap: 6px;
-}
-
-.control-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: #3d3d3d;
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.control-btn:hover {
-  background: #4d4d4d;
-}
-
-.control-btn.close:hover {
-  background: #e74c3c;
-}
-
-/* 内容区域 */
-.pin-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* 标签页 */
-.pin-tabs {
-  display: flex;
-  background: #252525;
-  border-bottom: 1px solid #3d3d3d;
-}
-
-.pin-tabs button {
-  flex: 1;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pin-tabs button:hover {
-  color: #fff;
-  background: #3d3d3d;
-}
-
-.pin-tabs button.active {
-  color: #00a8ff;
-  background: #2d2d2d;
-  border-bottom: 2px solid #00a8ff;
-}
-
-/* 内容主体 */
-.pin-body {
-  flex: 1;
-  overflow: auto;
-  background: #1a1a1a;
-}
-
-.pin-image-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+html,
+body,
+#root {
+  width: 100%;
   height: 100%;
-  padding: 10px;
-}
-
-.pin-text {
-  padding: 12px;
-  color: #fff;
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.pin-text pre {
   margin: 0;
-  font-family: inherit;
-  white-space: pre-wrap;
-  word-break: break-word;
+  padding: 0;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.001);
 }
 
-/* 操作按钮 */
-.pin-actions {
+.pin-loading {
+  width: 100%;
+  height: 100%;
   display: flex;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #252525;
-  border-top: 1px solid #3d3d3d;
-}
-
-.pin-actions button {
-  flex: 1;
-  padding: 6px 12px;
-  background: #3d3d3d;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.25);
   font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.pin-actions button:hover {
-  background: #4d4d4d;
-  border-color: #00a8ff;
+.pin-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.001);
+  user-select: none;
+  cursor: grab;
+  isolation: isolate;
 }
 
-/* 缩放手柄 */
-.resize-handle {
+.pin-root.dragging {
+  cursor: grabbing;
+}
+
+.pin-root.editing {
+  cursor: crosshair;
+}
+
+.pin-stage {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, #555 50%);
-  border-radius: 0 0 8px 0;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  background-color: rgba(0, 0, 0, 0.001);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
-.resize-handle:hover {
-  background: linear-gradient(135deg, transparent 50%, #00a8ff 50%);
+.pin-stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  background-color: transparent;
+}
+
+.pin-draw-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background-color: transparent;
+}
+
+.pin-context-menu {
+  position: absolute;
+  z-index: 20;
+  width: 176px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(18, 18, 22, 0.96);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+}
+
+.pin-context-menu button {
+  width: 100%;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 13px;
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.pin-context-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pin-context-menu button + button {
+  margin-top: 4px;
 }

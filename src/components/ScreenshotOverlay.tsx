@@ -34,6 +34,7 @@ const ScreenshotOverlay: React.FC = () => {
     setToolbarPosition,
     showTranslationResult,
     setShowTranslationResult,
+    translationDisplayMode,
     ocrLines,
   } = useAppStore();
 
@@ -460,7 +461,8 @@ const ScreenshotOverlay: React.FC = () => {
         <TranslationOverlay
           selectionArea={selectionArea}
           ocrLines={ocrLines}
-          position="below"
+          mode={translationDisplayMode}
+          position={translationDisplayMode === 'list' ? 'below' : 'overlay'}
           onClose={() => setShowTranslationResult(false)}
         />
       )}
@@ -476,7 +478,10 @@ const ScreenshotOverlay: React.FC = () => {
             // 翻译完成后更新工具栏位置
             if (selectionArea) {
               const toolbarX = selectionArea.x + (selectionArea.width - 300) / 2;
-              const toolbarY = selectionArea.y + selectionArea.height + 120; // 考虑翻译结果高度
+              const toolbarY =
+                translationDisplayMode === 'list'
+                  ? selectionArea.y + selectionArea.height + 120
+                  : selectionArea.y + selectionArea.height + 10;
               setToolbarPosition({
                 x: Math.max(10, Math.min(toolbarX, windowSize.width - 310)),
                 y: Math.min(toolbarY, windowSize.height - 50),
