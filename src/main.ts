@@ -590,6 +590,8 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
     transparent: true,
     backgroundColor: '#00000000',
     resizable: false,
+    minimizable: false,
+    skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -607,6 +609,23 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
 
   pinWindow.on('closed', () => {
     pinWindows.delete(pinWindow);
+  });
+
+  pinWindow.on('minimize', () => {
+    // Keep pinned windows visible even when "Show Desktop" is triggered.
+    setTimeout(() => {
+      if (pinWindow.isDestroyed()) {
+        return;
+      }
+
+      if (pinWindow.isMinimized()) {
+        pinWindow.restore();
+      }
+
+      pinWindow.setAlwaysOnTop(true, 'screen-saver');
+      pinWindow.moveTop();
+      pinWindow.showInactive();
+    }, 0);
   });
 
   pinWindows.add(pinWindow);

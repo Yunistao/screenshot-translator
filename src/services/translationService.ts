@@ -1,4 +1,4 @@
-import SparkMD5 from 'spark-md5';
+﻿import SparkMD5 from 'spark-md5';
 import { translateWithLLM as translateWithLLMCore } from './llmTranslation';
 
 export type TranslatorEngine =
@@ -552,15 +552,16 @@ export const translateText = async (
 };
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'zh-Hans', name: '中文（简体）' },
-  { code: 'zh-Hant', name: '中文（繁体）' },
-  { code: 'en', name: 'English' },
-  { code: 'ja', name: '日本語' },
-  { code: 'ko', name: '한국어' },
-  { code: 'fr', name: 'Français' },
-  { code: 'es', name: 'Español' },
-  { code: 'ru', name: 'Русский' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'it', name: 'Italiano' },
-  { code: 'pt', name: 'Português' },
+  { code: 'zh-Hans', name: '\u4e2d\u6587\uff08\u7b80\u4f53\uff09' },
+  { code: 'zh-Hant', name: '\u4e2d\u6587\uff08\u7e41\u4f53\uff09' },
+  { code: 'en', name: '\u82f1\u8bed' },
+  { code: 'ja', name: '\u65e5\u8bed' },
+  { code: 'ko', name: '\u97e9\u8bed' },
+  { code: 'fr', name: '\u6cd5\u8bed' },
+  { code: 'es', name: '\u897f\u73ed\u7259\u8bed' },
+  { code: 'ru', name: '\u4fc4\u8bed' },
+  { code: 'de', name: '\u5fb7\u8bed' },
+  { code: 'it', name: '\u610f\u5927\u5229\u8bed' },
+  { code: 'pt', name: '\u8461\u8404\u7259\u8bed' },
 ] as const;
+

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PinWindowData } from '../types/electron';
 import './PinWindow.css';
@@ -23,7 +23,7 @@ const SCALE_STEP = 0.15;
 const DRAW_COLOR = '#ff4d4f';
 const DRAW_SIZE = 3;
 const MENU_WIDTH = 176;
-const MENU_HEIGHT = 214;
+const MENU_HEIGHT = 168;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -33,11 +33,12 @@ const PinWindow: React.FC = () => {
   const currentStrokeRef = useRef<Point[] | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const lastAppliedWindowSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const menuExpandedRef = useRef(false);
 
   const [data, setData] = useState<PinWindowData | null>(null);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
   const [scale, setScale] = useState(1);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing] = useState(false);
   const [isDraggingWindow, setIsDraggingWindow] = useState(false);
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0 });
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -56,7 +57,12 @@ const PinWindow: React.FC = () => {
 
   const hideMenu = useCallback(() => {
     setMenu((current) => ({ ...current, visible: false }));
-  }, []);
+
+    if (menuExpandedRef.current && visibleSize) {
+      menuExpandedRef.current = false;
+      void window.electronAPI?.resizeCurrentWindow?.(visibleSize.width, visibleSize.height);
+    }
+  }, [visibleSize]);
 
   const closeWindow = useCallback(async () => {
     hideMenu();
@@ -291,6 +297,16 @@ const PinWindow: React.FC = () => {
       event.preventDefault();
       event.stopPropagation();
 
+      const minWindowWidth = MENU_WIDTH + 16;
+      const minWindowHeight = MENU_HEIGHT + 16;
+      if (window.innerWidth < minWindowWidth || window.innerHeight < minWindowHeight) {
+        menuExpandedRef.current = true;
+        void window.electronAPI?.resizeCurrentWindow?.(
+          Math.max(window.innerWidth, minWindowWidth),
+          Math.max(window.innerHeight, minWindowHeight),
+        );
+      }
+
       setMenu({
         visible: true,
         x: event.clientX,
@@ -303,16 +319,6 @@ const PinWindow: React.FC = () => {
   const zoomBy = useCallback((delta: number) => {
     setScale((current) => clamp(Number((current + delta).toFixed(2)), MIN_SCALE, MAX_SCALE));
   }, []);
-
-  const handleEditToggle = useCallback(() => {
-    setIsEditing((current) => {
-      if (current) {
-        finishStroke();
-      }
-      return !current;
-    });
-    hideMenu();
-  }, [finishStroke, hideMenu]);
 
   const copyCompositeImage = useCallback(async () => {
     if (!data?.imageData || !naturalSize) {
@@ -366,7 +372,7 @@ const PinWindow: React.FC = () => {
     try {
       await copyCompositeImage();
     } catch (error) {
-      console.warn('复制图片失败:', error);
+      console.warn('澶嶅埗鍥剧墖澶辫触:', error);
     } finally {
       hideMenu();
     }
@@ -384,7 +390,7 @@ const PinWindow: React.FC = () => {
   }, [menu.x, menu.y]);
 
   if (!data) {
-    return <div className="pin-loading">加载中...</div>;
+    return <div className="pin-loading">{'\u52a0\u8f7d\u4e2d...'}</div>;
   }
 
   return (
@@ -406,7 +412,7 @@ const PinWindow: React.FC = () => {
         }
         void closeWindow();
       }}
-      title="双击关闭"
+      title={'\u53cc\u51fb\u5173\u95ed'}
     >
       <div
         className="pin-stage"
@@ -450,12 +456,8 @@ const PinWindow: React.FC = () => {
           style={menuStyle}
           onMouseDown={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
-        >
-          <button data-testid="pin-context-menu-edit" onClick={handleEditToggle}>
-            {isEditing ? '退出编辑' : '编辑'}
-          </button>
-          <button data-testid="pin-context-menu-copy" onClick={handleCopyImage}>
-            复制图片
+        ><button data-testid="pin-context-menu-copy" onClick={handleCopyImage}>
+            {'\u590d\u5236\u56fe\u7247'}
           </button>
           <button
             data-testid="pin-context-menu-zoom-in"
@@ -464,7 +466,7 @@ const PinWindow: React.FC = () => {
               hideMenu();
             }}
           >
-            放大
+            {'\u653e\u5927'}
           </button>
           <button
             data-testid="pin-context-menu-zoom-out"
@@ -473,7 +475,7 @@ const PinWindow: React.FC = () => {
               hideMenu();
             }}
           >
-            缩小
+            {'\u7f29\u5c0f'}
           </button>
           <button
             data-testid="pin-context-menu-destroy"
@@ -487,7 +489,7 @@ const PinWindow: React.FC = () => {
               event.stopPropagation();
             }}
           >
-            销毁
+            {'\u9500\u6bc1'}
           </button>
         </div>,
         document.body,
@@ -497,3 +499,4 @@ const PinWindow: React.FC = () => {
 };
 
 export default PinWindow;
+

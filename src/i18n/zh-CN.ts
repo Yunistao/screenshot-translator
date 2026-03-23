@@ -1,153 +1,126 @@
-// 国际化配置 - 中文
 export const zhCN = {
-  // 通用
   common: {
-    save: '保存',
-    cancel: '取消',
-    close: '关闭',
-    confirm: '确认',
-    delete: '删除',
-    edit: '编辑',
-    add: '添加',
-    refresh: '刷新',
-    clear: '清空',
-    reset: '重置',
-    back: '返回',
-    next: '下一步',
-    previous: '上一步',
-    search: '搜索',
-    copy: '复制',
-    paste: '粘贴',
-    cut: '剪切',
-    undo: '撤销',
-    redo: '重做'
+    save: '\u4fdd\u5b58',
+    cancel: '\u53d6\u6d88',
+    close: '\u5173\u95ed',
+    confirm: '\u786e\u8ba4',
+    delete: '\u5220\u9664',
+    edit: '\u7f16\u8f91',
+    add: '\u6dfb\u52a0',
+    refresh: '\u5237\u65b0',
+    clear: '\u6e05\u7a7a',
+    reset: '\u91cd\u7f6e',
+    back: '\u8fd4\u56de',
+    next: '\u4e0b\u4e00\u6b65',
+    previous: '\u4e0a\u4e00\u6b65',
+    search: '\u641c\u7d22',
+    copy: '\u590d\u5236',
+    paste: '\u7c98\u8d34',
+    cut: '\u526a\u5207',
+    undo: '\u64a4\u9500',
+    redo: '\u91cd\u505a',
   },
-
-  // 应用标题和描述
   app: {
-    title: '截图翻译工具',
-    description: '便捷的截图翻译工具，支持OCR文字识别和多语言翻译功能'
+    title: '\u622a\u56fe\u7ffb\u8bd1\u5de5\u5177',
+    description: '\u4fbf\u6377\u7684\u622a\u56fe\u7ffb\u8bd1\u5de5\u5177\uff0c\u652f\u6301 OCR \u548c\u591a\u8bed\u8a00\u7ffb\u8bd1',
   },
-
-  // 截图工具
   screenshot: {
-    start: '开始截图',
-    cancel: '取消截图',
-    retry: '重试',
-    processing: '处理中...',
-    selecting: '选择截图区域...',
-    altKey: '开始截图 (Alt+S)',
-    instruction: '拖拽选择截图区域，按 ESC 取消',
-    captureFailed: '截图失败，请重试',
+    start: '\u5f00\u59cb\u622a\u56fe',
+    cancel: '\u53d6\u6d88\u622a\u56fe',
+    retry: '\u91cd\u8bd5',
+    processing: '\u5904\u7406\u4e2d...',
+    selecting: '\u9009\u62e9\u622a\u56fe\u533a\u57df...',
+    altKey: '\u5f00\u59cb\u622a\u56fe (Alt+S)',
+    instruction: '\u62d6\u62fd\u9009\u62e9\u622a\u56fe\u533a\u57df\uff0c\u6309 ESC \u53d6\u6d88',
+    captureFailed: '\u622a\u56fe\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
     processingProgress: {
-      getting: '正在获取截图...',
-      ocr: '正在执行OCR识别...',
-      translating: '正在翻译文本...',
-      completed: '处理完成！'
-    }
+      getting: '\u6b63\u5728\u83b7\u53d6\u622a\u56fe...',
+      ocr: '\u6b63\u5728\u6267\u884c OCR \u8bc6\u522b...',
+      translating: '\u6b63\u5728\u7ffb\u8bd1\u6587\u672c...',
+      completed: '\u5904\u7406\u5b8c\u6210',
+    },
   },
-
-  // OCR相关
   ocr: {
-    title: 'OCR 识别结果',
-    recognizeFailed: 'OCR识别失败'
+    title: 'OCR \u8bc6\u522b\u7ed3\u679c',
+    recognizeFailed: 'OCR \u8bc6\u522b\u5931\u8d25',
   },
-
-  // 翻译相关
   translation: {
-    title: '翻译结果',
-    serviceUnconfigured: '未配置翻译API密钥，使用模拟翻译',
-    failed: '翻译失败',
-    apiCallFailed: '翻译API调用失败',
-    emptyResult: '翻译服务返回空结果'
+    title: '\u7ffb\u8bd1\u7ed3\u679c',
+    serviceUnconfigured: '\u672a\u914d\u7f6e\u7ffb\u8bd1 API \u5bc6\u94a5\uff0c\u4f7f\u7528\u6a21\u62df\u7ffb\u8bd1',
+    failed: '\u7ffb\u8bd1\u5931\u8d25',
+    apiCallFailed: '\u7ffb\u8bd1 API \u8c03\u7528\u5931\u8d25',
+    emptyResult: '\u7ffb\u8bd1\u670d\u52a1\u8fd4\u56de\u7a7a\u7ed3\u679c',
   },
-
-  // 历史记录
   history: {
-    title: '翻译历史记录',
-    show: '显示历史记录',
-    hide: '隐藏历史记录',
-    clear: '清空历史',
-    refresh: '刷新',
-    empty: '暂无历史记录',
+    title: '\u7ffb\u8bd1\u5386\u53f2\u8bb0\u5f55',
+    show: '\u663e\u793a\u5386\u53f2\u8bb0\u5f55',
+    hide: '\u9690\u85cf\u5386\u53f2\u8bb0\u5f55',
+    clear: '\u6e05\u7a7a\u5386\u53f2',
+    refresh: '\u5237\u65b0',
+    empty: '\u6682\u65e0\u5386\u53f2\u8bb0\u5f55',
     item: {
       ocrPrefix: 'OCR: ',
-      translationPrefix: '翻译: ',
-      timeLabel: '时间: ',
-      showAgain: '重新显示',
-      delete: '删除'
-    }
+      translationPrefix: '\u7ffb\u8bd1: ',
+      timeLabel: '\u65f6\u95f4: ',
+      showAgain: '\u91cd\u65b0\u663e\u793a',
+      delete: '\u5220\u9664',
+    },
   },
-
-  // 设置面板
   settings: {
-    title: '设置',
-    show: '显示设置',
-    hide: '隐藏设置',
-    saved: '设置已保存！',
-
-    // 快捷键设置
+    title: '\u8bbe\u7f6e',
+    show: '\u663e\u793a\u8bbe\u7f6e',
+    hide: '\u9690\u85cf\u8bbe\u7f6e',
+    saved: '\u8bbe\u7f6e\u5df2\u4fdd\u5b58',
     shortcut: {
-      title: '快捷键设置',
-      keyLabel: '截图快捷键:',
-      placeholder: '例如: Alt+S'
+      title: '\u5feb\u6377\u952e\u8bbe\u7f6e',
+      keyLabel: '\u622a\u56fe\u5feb\u6377\u952e',
+      placeholder: '\u4f8b\u5982: Alt+S',
     },
-
-    // 翻译设置
     translation: {
-      title: '翻译设置',
-      apiKeyLabel: '翻译API密钥:',
-      apiKeyPlaceholder: '请输入微软翻译API密钥',
-      regionLabel: 'API区域:',
-      regionPlaceholder: '例如: global 或特定区域',
-      sourceLabel: '源语言:',
-      targetLabel: '目标语言:',
-      autoDetect: '自动检测'
+      title: '\u7ffb\u8bd1\u8bbe\u7f6e',
+      apiKeyLabel: '\u7ffb\u8bd1 API \u5bc6\u94a5',
+      apiKeyPlaceholder: '\u8bf7\u8f93\u5165\u5fae\u8f6f\u7ffb\u8bd1 API \u5bc6\u94a5',
+      regionLabel: 'API \u533a\u57df',
+      regionPlaceholder: '\u4f8b\u5982: global',
+      sourceLabel: '\u6e90\u8bed\u8a00',
+      targetLabel: '\u76ee\u6807\u8bed\u8a00',
+      autoDetect: '\u81ea\u52a8\u68c0\u6d4b',
     },
-
-    // 界面设置
     interface: {
-      title: '界面设置',
-      fontSizeLabel: '字体大小:',
-      opacityLabel: '窗口透明度:',
-      themeLabel: '主题:',
-      autoCopyLabel: '自动复制翻译结果',
-      lightTheme: '明亮',
-      darkTheme: '暗黑'
+      title: '\u754c\u9762\u8bbe\u7f6e',
+      fontSizeLabel: '\u5b57\u4f53\u5927\u5c0f',
+      opacityLabel: '\u7a97\u53e3\u900f\u660e\u5ea6',
+      themeLabel: '\u4e3b\u9898',
+      autoCopyLabel: '\u81ea\u52a8\u590d\u5236\u7ffb\u8bd1\u7ed3\u679c',
+      lightTheme: '\u660e\u4eae',
+      darkTheme: '\u6697\u9ed1',
     },
-
-    // 语言选项
     languages: {
-      zhHans: '中文（简体）',
-      zhHant: '中文（繁体）',
-      en: '英语',
-      ja: '日语',
-      ko: '韩语',
-      fr: '法语',
-      es: '西班牙语',
-      ru: '俄语',
-      de: '德语',
-      it: '意大利语',
-      pt: '葡萄牙语'
+      zhHans: '\u4e2d\u6587\uff08\u7b80\u4f53\uff09',
+      zhHant: '\u4e2d\u6587\uff08\u7e41\u4f53\uff09',
+      en: '\u82f1\u8bed',
+      ja: '\u65e5\u8bed',
+      ko: '\u97e9\u8bed',
+      fr: '\u6cd5\u8bed',
+      es: '\u897f\u73ed\u7259\u8bed',
+      ru: '\u4fc4\u8bed',
+      de: '\u5fb7\u8bed',
+      it: '\u610f\u5927\u5229\u8bed',
+      pt: '\u8461\u8404\u7259\u8bed',
     },
-
     actions: {
-      save: '保存设置',
-      reset: '恢复默认'
-    }
+      save: '\u4fdd\u5b58\u8bbe\u7f6e',
+      reset: '\u6062\u590d\u9ed8\u8ba4',
+    },
   },
-
-  // 错误信息
   errors: {
-    settingsParse: '解析设置失败',
-    storageLoad: '加载图片历史失败',
-    storageSave: '保存图片历史失败',
-    network: '网络错误',
-    unknown: '未知错误'
+    settingsParse: '\u89e3\u6790\u8bbe\u7f6e\u5931\u8d25',
+    storageLoad: '\u52a0\u8f7d\u56fe\u7247\u5386\u53f2\u5931\u8d25',
+    storageSave: '\u4fdd\u5b58\u56fe\u7247\u5386\u53f2\u5931\u8d25',
+    network: '\u7f51\u7edc\u9519\u8bef',
+    unknown: '\u672a\u77e5\u9519\u8bef',
   },
-
-  // 成功信息
   success: {
-    operationCompleted: '操作完成'
-  }
+    operationCompleted: '\u64cd\u4f5c\u5b8c\u6210',
+  },
 };

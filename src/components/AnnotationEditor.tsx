@@ -232,7 +232,7 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     );
 
     annotations.forEach((annotation) => {
-      drawAnnotation(ctx, annotation, 0, 0);
+      drawAnnotation(ctx, annotation, selectionArea.x, selectionArea.y);
     });
 
     drawLivePreview(ctx);

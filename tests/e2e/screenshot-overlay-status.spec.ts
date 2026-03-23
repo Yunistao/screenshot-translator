@@ -244,7 +244,7 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
     await pinWindow.locator('.pin-root').dispatchEvent('dblclick').catch(() => {});
   });
 
-  test('Pin window context menu should expose edit, zoom, copy and destroy actions', async () => {
+  test('Pin window context menu should expose zoom, copy and destroy actions', async () => {
     const primaryButton = mainWindow.locator('.primary-button');
 
     await primaryButton.click();
@@ -260,7 +260,7 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
 
     await pinWindow.locator('.pin-root').click({ button: 'right' });
     await expect(pinWindow.locator('[data-testid="pin-context-menu"]')).toBeVisible();
-    await expect(pinWindow.locator('[data-testid="pin-context-menu-edit"]')).toBeVisible();
+    await expect(pinWindow.locator('[data-testid="pin-context-menu-edit"]')).toHaveCount(0);
     await expect(pinWindow.locator('[data-testid="pin-context-menu-copy"]')).toBeVisible();
     await expect(pinWindow.locator('[data-testid="pin-context-menu-zoom-in"]')).toBeVisible();
     await expect(pinWindow.locator('[data-testid="pin-context-menu-zoom-out"]')).toBeVisible();
@@ -275,7 +275,7 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
     await expect.poll(() => getPinWindowCount(app)).toBe(0);
   });
 
-  test('Pin zoom-out should reduce real window bounds and keep drawing functional', async () => {
+  test('Pin zoom-out should reduce real window bounds and still allow context actions', async () => {
     const primaryButton = mainWindow.locator('.primary-button');
 
     await primaryButton.click();
@@ -332,39 +332,9 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
       .toBeLessThan(initialBounds!.height);
 
     await pinWindow.locator('.pin-root').click({ button: 'right' });
-    await pinWindow.locator('[data-testid="pin-context-menu-edit"]').click();
-    await expect(pinWindow.locator('.pin-root')).toHaveAttribute('data-editing', 'true');
-
-    const canvas = pinWindow.locator('.pin-draw-layer');
-    const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-
-    const startX = Math.round(box!.x + box!.width * 0.2);
-    const endX = Math.round(box!.x + box!.width * 0.8);
-    const y = Math.round(box!.y + box!.height * 0.5);
-
-    await pinWindow.mouse.move(startX, y);
-    await pinWindow.mouse.down();
-    await pinWindow.mouse.move(endX, y);
-    await pinWindow.mouse.up();
-
-    const strokePixel = await pinWindow.locator('.pin-draw-layer').evaluate((canvasElement) => {
-      const canvas = canvasElement as HTMLCanvasElement;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Canvas context is unavailable');
-      }
-
-      const dpr = window.devicePixelRatio || 1;
-      const x = Math.round((canvas.width / dpr) * 0.5 * dpr);
-      const yAt = Math.round((canvas.height / dpr) * 0.5 * dpr);
-      return Array.from(ctx.getImageData(x, yAt, 1, 1).data);
-    });
-
-    expect(strokePixel[0]).toBeGreaterThan(180);
-    expect(strokePixel[1]).toBeLessThan(120);
-    expect(strokePixel[2]).toBeLessThan(120);
-    expect(strokePixel[3]).toBeGreaterThan(0);
+    await expect(pinWindow.locator('[data-testid="pin-context-menu"]')).toBeVisible();
+    await expect(pinWindow.locator('[data-testid="pin-context-menu-edit"]')).toHaveCount(0);
+    await expect(pinWindow.locator('[data-testid="pin-context-menu-copy"]')).toBeVisible();
   });
 
   test('Translation result defaults to inline mode and can toggle to list mode and back', async () => {

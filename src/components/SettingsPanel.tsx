@@ -121,6 +121,21 @@ const SettingsPanel: React.FC = () => {
     localStorage.removeItem('screenshotTranslatorSettings');
   };
 
+  const getEngineLabel = (code: TranslatorEngine): string => {
+    const labels: Record<TranslatorEngine, string> = {
+      microsoft: '微软翻译',
+      google: 'Google 翻译',
+      baidu: '百度翻译',
+      youdao: '有道翻译',
+      openai: 'OpenAI (GPT)',
+      siliconflow: 'SiliconFlow',
+      'openai-compatible': 'OpenAI 兼容',
+      claude: 'Claude',
+      gemini: 'Gemini',
+    };
+    return labels[code] || code;
+  };
+
   return (
     <div className="settings-panel">
       <h2>{tNested('settings.title')}</h2>
@@ -132,35 +147,35 @@ const SettingsPanel: React.FC = () => {
       )}
 
       <div className="setting-group">
-        <h3>Shortcut</h3>
+        <h3>{tNested('settings.shortcut.title')}</h3>
         <div className="setting-item">
-          <label htmlFor="shortcutKey">Shortcut Key</label>
+          <label htmlFor="shortcutKey">{tNested('settings.shortcut.keyLabel')}</label>
           <input
             type="text"
             id="shortcutKey"
             value={settings.shortcutKey}
             onChange={(e) => handleChange('shortcutKey', e.target.value)}
-            placeholder="Alt+S"
+            placeholder={tNested('settings.shortcut.placeholder')}
           />
         </div>
       </div>
 
       <div className="setting-group">
-        <h3>Translation</h3>
+        <h3>{tNested('settings.translation.title')}</h3>
 
         <div className="setting-item">
-          <label htmlFor="translatorApiKey">Microsoft Translator API Key</label>
+          <label htmlFor="translatorApiKey">微软翻译 API 密钥</label>
           <input
             type="password"
             id="translatorApiKey"
             value={settings.translatorApiKey}
             onChange={(e) => handleChange('translatorApiKey', e.target.value)}
-            placeholder="Optional for Microsoft Translator"
+            placeholder="用于微软翻译（可选）"
           />
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorRegion">Microsoft Region</label>
+          <label htmlFor="translatorRegion">微软区域</label>
           <input
             type="text"
             id="translatorRegion"
@@ -171,64 +186,64 @@ const SettingsPanel: React.FC = () => {
         </div>
 
         <div className="setting-item">
-          <label htmlFor="sourceLanguage">Source Language</label>
+          <label htmlFor="sourceLanguage">{tNested('settings.translation.sourceLabel')}</label>
           <select
             id="sourceLanguage"
             value={settings.sourceLanguage}
             onChange={(e) => handleChange('sourceLanguage', e.target.value)}
           >
-            <option value="auto">Auto Detect</option>
-            <option value="zh-Hans">Chinese (Simplified)</option>
-            <option value="zh-Hant">Chinese (Traditional)</option>
-            <option value="en">English</option>
-            <option value="ja">Japanese</option>
-            <option value="ko">Korean</option>
-            <option value="fr">French</option>
-            <option value="es">Spanish</option>
-            <option value="ru">Russian</option>
-            <option value="de">German</option>
-            <option value="it">Italian</option>
-            <option value="pt">Portuguese</option>
+            <option value="auto">{tNested('settings.translation.autoDetect')}</option>
+            <option value="zh-Hans">{tNested('settings.languages.zhHans')}</option>
+            <option value="zh-Hant">{tNested('settings.languages.zhHant')}</option>
+            <option value="en">{tNested('settings.languages.en')}</option>
+            <option value="ja">{tNested('settings.languages.ja')}</option>
+            <option value="ko">{tNested('settings.languages.ko')}</option>
+            <option value="fr">{tNested('settings.languages.fr')}</option>
+            <option value="es">{tNested('settings.languages.es')}</option>
+            <option value="ru">{tNested('settings.languages.ru')}</option>
+            <option value="de">{tNested('settings.languages.de')}</option>
+            <option value="it">{tNested('settings.languages.it')}</option>
+            <option value="pt">{tNested('settings.languages.pt')}</option>
           </select>
         </div>
 
         <div className="setting-item">
-          <label htmlFor="targetLanguage">Target Language</label>
+          <label htmlFor="targetLanguage">{tNested('settings.translation.targetLabel')}</label>
           <select
             id="targetLanguage"
             value={settings.targetLanguage}
             onChange={(e) => handleChange('targetLanguage', e.target.value)}
           >
-            <option value="zh-Hans">Chinese (Simplified)</option>
-            <option value="zh-Hant">Chinese (Traditional)</option>
-            <option value="en">English</option>
-            <option value="ja">Japanese</option>
-            <option value="ko">Korean</option>
-            <option value="fr">French</option>
-            <option value="es">Spanish</option>
-            <option value="ru">Russian</option>
-            <option value="de">German</option>
-            <option value="it">Italian</option>
-            <option value="pt">Portuguese</option>
+            <option value="zh-Hans">{tNested('settings.languages.zhHans')}</option>
+            <option value="zh-Hant">{tNested('settings.languages.zhHant')}</option>
+            <option value="en">{tNested('settings.languages.en')}</option>
+            <option value="ja">{tNested('settings.languages.ja')}</option>
+            <option value="ko">{tNested('settings.languages.ko')}</option>
+            <option value="fr">{tNested('settings.languages.fr')}</option>
+            <option value="es">{tNested('settings.languages.es')}</option>
+            <option value="ru">{tNested('settings.languages.ru')}</option>
+            <option value="de">{tNested('settings.languages.de')}</option>
+            <option value="it">{tNested('settings.languages.it')}</option>
+            <option value="pt">{tNested('settings.languages.pt')}</option>
           </select>
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorEngine">Translation Engine</label>
+          <label htmlFor="translatorEngine">翻译引擎</label>
           <select
             id="translatorEngine"
             value={settings.translatorEngine}
             onChange={(e) => handleChange('translatorEngine', e.target.value as TranslatorEngine)}
           >
             {TRANSLATOR_ENGINES.map(engine => (
-              <option key={engine.code} value={engine.code}>{engine.name}</option>
+              <option key={engine.code} value={engine.code}>{getEngineLabel(engine.code)}</option>
             ))}
           </select>
         </div>
 
         {settings.translatorEngine === 'google' && (
           <div className="setting-item">
-            <label htmlFor="googleTranslateApiKey">Google Translate API Key</label>
+            <label htmlFor="googleTranslateApiKey">Google 翻译 API 密钥</label>
             <input
               type="password"
               id="googleTranslateApiKey"
@@ -242,7 +257,7 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'baidu' && (
           <>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppId">Baidu App ID</label>
+              <label htmlFor="baiduTranslateAppId">百度 App ID</label>
               <input
                 type="text"
                 id="baiduTranslateAppId"
@@ -252,7 +267,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppKey">Baidu App Key</label>
+              <label htmlFor="baiduTranslateAppKey">百度 App Key</label>
               <input
                 type="password"
                 id="baiduTranslateAppKey"
@@ -267,7 +282,7 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'youdao' && (
           <>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppKey">Youdao App Key</label>
+              <label htmlFor="youdaoTranslateAppKey">有道 App Key</label>
               <input
                 type="text"
                 id="youdaoTranslateAppKey"
@@ -277,7 +292,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppSecret">Youdao App Secret</label>
+              <label htmlFor="youdaoTranslateAppSecret">有道 App Secret</label>
               <input
                 type="password"
                 id="youdaoTranslateAppSecret"
@@ -302,7 +317,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiBaseUrl">API Base URL (optional)</label>
+              <label htmlFor="openaiBaseUrl">API 基础地址（可选）</label>
               <input
                 type="text"
                 id="openaiBaseUrl"
@@ -312,7 +327,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiModel">Model</label>
+              <label htmlFor="openaiModel">模型</label>
               <input
                 type="text"
                 id="openaiModel"
@@ -337,7 +352,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="siliconflowBaseUrl">API Base URL</label>
+              <label htmlFor="siliconflowBaseUrl">API 基础地址</label>
               <input
                 type="text"
                 id="siliconflowBaseUrl"
@@ -347,7 +362,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="siliconflowModel">Model</label>
+              <label htmlFor="siliconflowModel">模型</label>
               <input
                 type="text"
                 id="siliconflowModel"
@@ -362,17 +377,17 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'openai-compatible' && (
           <>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleApiKey">API Key (optional)</label>
+              <label htmlFor="openaiCompatibleApiKey">API 密钥（可选）</label>
               <input
                 type="password"
                 id="openaiCompatibleApiKey"
                 value={settings.openaiCompatibleApiKey}
                 onChange={(e) => handleChange('openaiCompatibleApiKey', e.target.value)}
-                placeholder="Leave blank for internal gateways"
+                placeholder="内部网关可留空"
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleBaseUrl">API Base URL</label>
+              <label htmlFor="openaiCompatibleBaseUrl">API 基础地址</label>
               <input
                 type="text"
                 id="openaiCompatibleBaseUrl"
@@ -382,7 +397,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleModel">Model Name</label>
+              <label htmlFor="openaiCompatibleModel">模型名称</label>
               <input
                 type="text"
                 id="openaiCompatibleModel"
@@ -407,7 +422,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeBaseUrl">API Base URL (optional)</label>
+              <label htmlFor="claudeBaseUrl">API 基础地址（可选）</label>
               <input
                 type="text"
                 id="claudeBaseUrl"
@@ -417,7 +432,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeModel">Model</label>
+              <label htmlFor="claudeModel">模型</label>
               <input
                 type="text"
                 id="claudeModel"
@@ -442,7 +457,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="geminiModel">Model</label>
+              <label htmlFor="geminiModel">模型</label>
               <input
                 type="text"
                 id="geminiModel"
@@ -456,9 +471,9 @@ const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="setting-group">
-        <h3>OCR Settings</h3>
+        <h3>OCR 设置</h3>
         <div className="setting-item">
-          <label htmlFor="ocrLanguage">OCR Language</label>
+          <label htmlFor="ocrLanguage">OCR 语言</label>
           <select
             id="ocrLanguage"
             value={settings.ocrLanguage}
@@ -472,10 +487,10 @@ const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="setting-group">
-        <h3>Interface</h3>
+        <h3>{tNested('settings.interface.title')}</h3>
 
         <div className="setting-item">
-          <label htmlFor="fontSize">Font Size</label>
+          <label htmlFor="fontSize">{tNested('settings.interface.fontSizeLabel')}</label>
           <input
             type="range"
             id="fontSize"
@@ -489,7 +504,7 @@ const SettingsPanel: React.FC = () => {
         </div>
 
         <div className="setting-item">
-          <label htmlFor="opacity">Opacity</label>
+          <label htmlFor="opacity">{tNested('settings.interface.opacityLabel')}</label>
           <input
             type="range"
             id="opacity"
@@ -503,14 +518,14 @@ const SettingsPanel: React.FC = () => {
         </div>
 
         <div className="setting-item">
-          <label htmlFor="theme">Theme</label>
+          <label htmlFor="theme">{tNested('settings.interface.themeLabel')}</label>
           <select
             id="theme"
             value={settings.theme}
             onChange={(e) => handleChange('theme', e.target.value as 'light' | 'dark')}
           >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
+            <option value="light">{tNested('settings.interface.lightTheme')}</option>
+            <option value="dark">{tNested('settings.interface.darkTheme')}</option>
           </select>
         </div>
 
@@ -522,7 +537,7 @@ const SettingsPanel: React.FC = () => {
               checked={settings.autoCopy}
               onChange={(e) => handleChange('autoCopy', e.target.checked)}
             />
-            Auto copy translation
+            {tNested('settings.interface.autoCopyLabel')}
           </label>
         </div>
       </div>
