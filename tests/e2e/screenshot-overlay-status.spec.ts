@@ -146,6 +146,8 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
       env: {
         ...process.env,
         E2E_MOCK_OVERLAY: '1',
+        E2E_SHOW_MAIN_WINDOW: '1',
+        E2E_DISABLE_TRAY: '1',
         DISABLE_DEVTOOLS: '1',
       },
     });
@@ -158,6 +160,18 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
   });
 
   test.afterEach(async () => {
+    if (!app) {
+      return;
+    }
+
+    try {
+      await app.evaluate(({ app: electronApp }) => {
+        electronApp.quit();
+      });
+    } catch {
+      // Ignore failures when app is already closing.
+    }
+
     await app.close();
   });
 
@@ -448,15 +462,46 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
 
     await expect(mainWindow.getByRole('heading', { name: '设置', exact: true })).toBeVisible();
     await expect(mainWindow.getByText('翻译引擎')).toBeVisible();
-    await expect(mainWindow.getByLabel('微软翻译 API 密钥')).toBeVisible();
-    await expect(mainWindow.getByLabel('微软区域')).toBeVisible();
+    await expect(mainWindow.getByLabel('微软翻译 API 密钥')).toHaveCount(0);
+    await expect(mainWindow.getByLabel('微软区域')).toHaveCount(0);
     await expect(mainWindow.getByRole('heading', { name: 'OCR 设置' })).toBeVisible();
     await expect(mainWindow.getByLabel('OCR 语言')).toBeVisible();
 
     const engineOptions = await mainWindow.locator('#translatorEngine option').allTextContents();
     expect(engineOptions).toEqual(
-      expect.arrayContaining(['微软翻译', 'Google 翻译', '百度翻译', '有道翻译', 'OpenAI 兼容']),
+      expect.arrayContaining(['Google 翻译', '百度翻译', '有道翻译', 'OpenAI 兼容']),
     );
+    expect(engineOptions).not.toContain('微软翻译');
+  });
+
+  test('Settings should migrate legacy microsoft engine to openai-compatible and persist it', async () => {
+    await mainWindow.evaluate(() => {
+      localStorage.setItem(
+        'screenshotTranslatorSettings',
+        JSON.stringify({
+          translatorEngine: 'microsoft',
+        }),
+      );
+    });
+
+    await mainWindow.getByRole('button', { name: '显示设置' }).click();
+    await expect(mainWindow.locator('#translatorEngine')).toHaveValue('openai-compatible');
+
+    const migratedEngine = await mainWindow.evaluate(() => {
+      const raw = localStorage.getItem('screenshotTranslatorSettings');
+      if (!raw) {
+        return null;
+      }
+
+      try {
+        const parsed = JSON.parse(raw) as { translatorEngine?: string };
+        return parsed.translatorEngine ?? null;
+      } catch {
+        return null;
+      }
+    });
+
+    expect(migratedEngine).toBe('openai-compatible');
   });
 
   test('Main app should not expose history panel entry button', async () => {
@@ -599,3 +644,4 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
     expect(labels).toEqual(expect.arrayContaining(['文件', '编辑', '查看', '窗口', '帮助']));
   });
 });
+

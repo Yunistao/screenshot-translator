@@ -1,9 +1,13 @@
-﻿import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, globalShortcut, nativeImage, screen } from 'electron';
+﻿import { app, BrowserWindow, Menu, Tray, ipcMain, desktopCapturer, globalShortcut, nativeImage, screen } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
 let screenshotOverlayWindow: BrowserWindow | null = null;
 let pinWindows: Set<BrowserWindow> = new Set();
+let tray: Tray | null = null;
+let isQuitting = false;
 let screenshotOverlayActive = false;
 let overlayEscapeShortcutRegistered = false;
 let shouldRestoreMainWindowAfterScreenshot = false;
@@ -17,6 +21,8 @@ const isDev = () => process.env.NODE_ENV === 'development' || !app.isPackaged;
 const shouldOpenDevTools = () =>
   isDev() && process.env.ENABLE_DEVTOOLS === '1' && process.env.DISABLE_DEVTOOLS !== '1';
 const isE2EMockOverlay = () => process.env.E2E_MOCK_OVERLAY === '1';
+const shouldShowMainWindowForE2E = () => process.env.E2E_SHOW_MAIN_WINDOW === '1';
+const shouldDisableTrayForE2E = () => process.env.E2E_DISABLE_TRAY === '1';
 const e2eOverlayOpenDelayMs = Math.max(0, Number(process.env.E2E_OVERLAY_OPEN_DELAY_MS ?? '0'));
 const MOCK_SCREENSHOT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9oN2l6sAAAAASUVORK5CYII=';
 const OVERLAY_ESC_SHORTCUT = 'Escape';
@@ -73,8 +79,14 @@ function minimizeWindowForScreenshot(targetWindow: BrowserWindow | null) {
     return;
   }
 
+  if (!targetWindow.isVisible()) {
+    return;
+  }
+
   if (!targetWindow.isMinimized()) {
-    shouldRestoreMainWindowAfterScreenshot = true;
+    if (targetWindow === mainWindow) {
+      shouldRestoreMainWindowAfterScreenshot = true;
+    }
     targetWindow.minimize();
     setImmediate(() => {
       if (
@@ -155,96 +167,176 @@ function openScreenshotOverlayWithImage(imageData: string, requestId?: number): 
   return true;
 }
 
+function getRendererUrl(query?: Record<string, string>): string {
+  const baseUrl = isDev() ? 'http://localhost:5173' : 'index.html';
+  if (!query || Object.keys(query).length === 0) {
+    return baseUrl;
+  }
+
+  const searchParams = new URLSearchParams(query);
+  if (isDev()) {
+    return `${baseUrl}?${searchParams.toString()}`;
+  }
+
+  return baseUrl;
+}
+
+function loadRendererWindow(targetWindow: BrowserWindow, query?: Record<string, string>) {
+  if (isDev()) {
+    targetWindow.loadURL(getRendererUrl(query));
+    return;
+  }
+
+  targetWindow.loadFile('index.html', { query });
+}
+
+function showMainWindow(options?: { openRecentResult?: boolean }) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  mainWindow.focus();
+
+  if (!options?.openRecentResult) {
+    return;
+  }
+
+  const openRecentResult = () => mainWindow?.webContents.send('open-recent-result');
+  if (mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.once('did-finish-load', openRecentResult);
+  } else {
+    openRecentResult();
+  }
+}
+
+function createSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.show();
+    settingsWindow.focus();
+    return settingsWindow;
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 420,
+    height: 620,
+    minWidth: 380,
+    minHeight: 520,
+    autoHideMenuBar: true,
+    resizable: true,
+    show: false,
+    title: '设置',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  loadRendererWindow(settingsWindow, { settings: 'true' });
+
+  if (shouldOpenDevTools()) {
+    settingsWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  settingsWindow.once('ready-to-show', () => {
+    settingsWindow?.show();
+    settingsWindow?.focus();
+  });
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+
+  return settingsWindow;
+}
+
 function createWindow() {
-  console.log('Creating window...');
+  const showOnStart = shouldShowMainWindowForE2E();
+
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 380,
+    height: 360,
+    minWidth: 340,
+    minHeight: 320,
+    maxWidth: 520,
+    maxHeight: 620,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
     },
     resizable: true,
-    show: true
+    show: showOnStart,
+    title: 'Screenshot Translator',
   });
 
-  // 鍔犺浇娓叉煋杩涚▼
-  console.log('Loading renderer process...');
+  loadRendererWindow(mainWindow);
 
-  // 寮€鍙戞ā寮忥細鍔犺浇 Vite 寮€鍙戞湇鍔″櫒
-  // 鐢熶骇妯″紡锛氬姞杞芥瀯寤哄悗鐨勯潤鎬佹枃浠?
-
-  if (isDev()) {
-    // 绛夊緟 Vite 寮€鍙戞湇鍔″櫒鍚姩
-    const viteUrl = 'http://localhost:5173';
-    console.log(`Loading Vite dev server: ${viteUrl}`);
-    mainWindow.loadURL(viteUrl);
-  } else {
-    mainWindow.loadFile('index.html');
-  }
-
-  // 寮€鍙戠幆澧冧笅鎵撳紑寮€鍙戣€呭伐鍏?
   if (shouldOpenDevTools()) {
     mainWindow.webContents.openDevTools();
   }
 
-  // 鐩戝惉绐楀彛鍏抽棴浜嬩欢
+  mainWindow.on('close', (event) => {
+    if (isQuitting) {
+      return;
+    }
+    event.preventDefault();
+    mainWindow?.hide();
+  });
+
   mainWindow.on('closed', () => {
-    console.log('Window closed');
     mainWindow = null;
   });
 
-  // 璁剧疆涓枃鑿滃崟
-  console.log('Setting up menu...');
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: '\u6587\u4ef6',
       submenu: [
         {
+          label: '\u6253\u5f00\u4e3b\u754c\u9762',
+          click: () => showMainWindow(),
+        },
+        {
+          label: '\u6253\u5f00\u8bbe\u7f6e',
+          click: () => createSettingsWindow(),
+        },
+        {
+          type: 'separator',
+        },
+        {
           label: '\u9000\u51fa',
           accelerator: 'Ctrl+Q',
-          click: () => app.quit()
-        }
-      ]
+          click: () => {
+            isQuitting = true;
+            app.quit();
+          },
+        },
+      ],
     },
     {
       label: '\u7f16\u8f91',
       submenu: [
-        {
-          label: '\u64a4\u9500',
-          accelerator: 'Ctrl+Z',
-          role: 'undo'
-        },
-        {
-          label: '\u91cd\u505a',
-          accelerator: 'Ctrl+Y',
-          role: 'redo'
-        },
-        {
-          type: 'separator'
-        },
-        {
-          label: '\u526a\u5207',
-          accelerator: 'Ctrl+X',
-          role: 'cut'
-        },
-        {
-          label: '\u590d\u5236',
-          accelerator: 'Ctrl+C',
-          role: 'copy'
-        },
-        {
-          label: '\u7c98\u8d34',
-          accelerator: 'Ctrl+V',
-          role: 'paste'
-        },
-        {
-          label: '\u5168\u9009',
-          accelerator: 'Ctrl+A',
-          role: 'selectAll'
-        }
-      ]
+        { label: '\u64a4\u9500', accelerator: 'Ctrl+Z', role: 'undo' },
+        { label: '\u91cd\u505a', accelerator: 'Ctrl+Y', role: 'redo' },
+        { type: 'separator' },
+        { label: '\u526a\u5207', accelerator: 'Ctrl+X', role: 'cut' },
+        { label: '\u590d\u5236', accelerator: 'Ctrl+C', role: 'copy' },
+        { label: '\u7c98\u8d34', accelerator: 'Ctrl+V', role: 'paste' },
+        { label: '\u5168\u9009', accelerator: 'Ctrl+A', role: 'selectAll' },
+      ],
     },
     {
       label: '\u67e5\u770b',
@@ -252,54 +344,40 @@ function createWindow() {
         {
           label: '\u91cd\u65b0\u52a0\u8f7d',
           accelerator: 'Ctrl+R',
-          click: () => mainWindow?.reload()
+          click: () => mainWindow?.reload(),
         },
         {
           label: '\u5f3a\u5236\u91cd\u65b0\u52a0\u8f7d',
           accelerator: 'Ctrl+Shift+R',
-          click: () => mainWindow?.webContents.reloadIgnoringCache()
+          click: () => mainWindow?.webContents.reloadIgnoringCache(),
         },
-        {
-          type: 'separator'
-        },
+        { type: 'separator' },
         {
           label: '\u5f00\u53d1\u8005\u5de5\u5177',
           accelerator: 'Ctrl+Shift+I',
-          click: () => mainWindow?.webContents.toggleDevTools()
-        }
-      ]
+          click: () => mainWindow?.webContents.toggleDevTools(),
+        },
+      ],
     },
     {
       label: '\u7a97\u53e3',
       submenu: [
-        {
-          label: '\u6700\u5c0f\u5316',
-          accelerator: 'Ctrl+M',
-          role: 'minimize'
-        },
-        {
-          label: '\u5173\u95ed',
-          accelerator: 'Ctrl+W',
-          role: 'close'
-        }
-      ]
+        { label: '\u6700\u5c0f\u5316', accelerator: 'Ctrl+M', role: 'minimize' },
+        { label: '\u5173\u95ed', accelerator: 'Ctrl+W', role: 'close' },
+      ],
     },
     {
       label: '\u5e2e\u52a9',
       submenu: [
         {
           label: '\u5173\u4e8e',
-          click: () => {
-            // 鍙互娣诲姞鍏充簬瀵硅瘽妗?
-          }
-        }
-      ]
-    }
+          enabled: false,
+        },
+      ],
+    },
   ];
 
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
-  console.log('Window created successfully');
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // IPC 澶勭悊鍣細璇锋眰鍏ㄥ睆鎴浘锛堟敮鎸佸鏄剧ず鍣級
@@ -377,6 +455,44 @@ ipcMain.handle('capture-screenshot', async (_event, x: number, y: number, width:
 let currentShortcut = '';
 let shortcutRegistered = false;
 
+function hideAuxiliaryWindowsForScreenshot() {
+  if (settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible()) {
+    settingsWindow.hide();
+  }
+}
+
+async function requestOpenScreenshotOverlay(): Promise<boolean> {
+  minimizeMainWindowForScreenshot();
+  hideAuxiliaryWindowsForScreenshot();
+  const requestId = ++overlayOpenRequestId;
+
+  if (e2eOverlayOpenDelayMs > 0) {
+    await sleep(e2eOverlayOpenDelayMs);
+  }
+
+  if (isOverlayOpenCanceled(requestId)) {
+    restoreMainWindowAfterScreenshot();
+    return false;
+  }
+
+  if (isE2EMockOverlay()) {
+    return openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE, requestId);
+  }
+
+  const imageData = await captureScreen();
+  if (isOverlayOpenCanceled(requestId)) {
+    restoreMainWindowAfterScreenshot();
+    return false;
+  }
+
+  if (imageData) {
+    return openScreenshotOverlayWithImage(imageData, requestId);
+  }
+
+  restoreMainWindowAfterScreenshot();
+  return false;
+}
+
 // 灏濊瘯娉ㄥ唽蹇嵎閿紝濡傛灉澶辫触鍒欏皾璇曞鐢ㄥ揩鎹烽敭
 function tryRegisterShortcut(shortcutKey: string): boolean {
   try {
@@ -386,19 +502,7 @@ function tryRegisterShortcut(shortcutKey: string): boolean {
     }
 
     const success = globalShortcut.register(shortcutKey, async () => {
-      minimizeMainWindowForScreenshot();
-
-      if (isE2EMockOverlay()) {
-        openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE);
-        return;
-      }
-
-      const imageData = await captureScreen();
-      if (imageData) {
-        openScreenshotOverlayWithImage(imageData);
-      } else {
-        restoreMainWindowAfterScreenshot();
-      }
+      await requestOpenScreenshotOverlay();
     });
 
     if (success) {
@@ -407,16 +511,19 @@ function tryRegisterShortcut(shortcutKey: string): boolean {
       console.log(`蹇嵎閿敞鍐屾垚鍔? ${shortcutKey}`);
       // 閫氱煡娓叉煋杩涚▼
       mainWindow?.webContents.send('shortcut-status', { registered: true, shortcut: shortcutKey });
+      updateTrayMenu();
       return true;
     } else {
       console.warn(`蹇嵎閿敞鍐屽け璐? ${shortcutKey} (鍙兘琚叾浠栧簲鐢ㄥ崰鐢?`);
       shortcutRegistered = false;
       mainWindow?.webContents.send('shortcut-status', { registered: false, shortcut: shortcutKey, error: '蹇嵎閿鍏朵粬搴旂敤鍗犵敤' });
+      updateTrayMenu();
       return false;
     }
   } catch (error) {
     console.error('娉ㄥ唽蹇嵎閿椂鍑洪敊:', error);
     shortcutRegistered = false;
+    updateTrayMenu();
     return false;
   }
 }
@@ -436,10 +543,96 @@ function registerShortcutWithFallback() {
   return false;
 }
 
-ipcMain.on('update-shortcut', (_event, shortcutKey: string) => {
-  if (shortcutKey && shortcutKey.trim()) {
-    tryRegisterShortcut(shortcutKey.trim());
+function resolveTrayIcon() {
+  const candidates = [
+    path.join(app.getAppPath(), 'public', 'icon.png'),
+    path.join(process.resourcesPath, 'public', 'icon.png'),
+    path.join(process.resourcesPath, 'icon.png'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (!candidate || !fs.existsSync(candidate)) {
+        continue;
+      }
+
+      const image = nativeImage.createFromPath(candidate);
+      if (!image.isEmpty()) {
+        return image;
+      }
+    } catch (error) {
+      console.warn('Failed to load tray icon:', error);
+    }
   }
+
+  const fallback = nativeImage.createFromPath(process.execPath);
+  if (!fallback.isEmpty()) {
+    return fallback;
+  }
+
+  return nativeImage.createFromDataURL(MOCK_SCREENSHOT_IMAGE);
+}
+
+function updateTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  const shortcutHint = currentShortcut
+    ? `快捷键：${currentShortcut}`
+    : '快捷键：未注册';
+
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '\u5f00\u59cb\u622a\u56fe',
+      click: () => {
+        void requestOpenScreenshotOverlay();
+      },
+    },
+    {
+      label: '\u4e3b\u754c\u9762',
+      click: () => showMainWindow({ openRecentResult: true }),
+    },
+    {
+      label: '\u8bbe\u7f6e',
+      click: () => createSettingsWindow(),
+    },
+    {
+      label: shortcutHint,
+      enabled: false,
+    },
+    {
+      label: '\u9000\u51fa',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ];
+
+  tray.setToolTip('Screenshot Translator');
+  tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
+}
+
+function setupTray() {
+  if (tray || shouldDisableTrayForE2E()) {
+    return;
+  }
+
+  tray = new Tray(resolveTrayIcon());
+  tray.on('click', () => {
+    void requestOpenScreenshotOverlay();
+  });
+  tray.on('right-click', () => {
+    tray?.popUpContextMenu();
+  });
+
+  updateTrayMenu();
+}
+
+ipcMain.on('update-shortcut', (_event, shortcutKey: string) => {
+  const nextShortcut = shortcutKey?.trim() || 'Alt+S';
+  tryRegisterShortcut(nextShortcut);
 });
 
 // IPC 澶勭悊鍣細鏌ヨ蹇嵎閿姸鎬?
@@ -563,34 +756,7 @@ ipcMain.handle('capture-screen', async () => {
 
 // IPC: 鎵撳紑鎴浘瑕嗙洊绐楀彛
 ipcMain.handle('open-screenshot-overlay', async () => {
-  minimizeMainWindowForScreenshot();
-  const requestId = ++overlayOpenRequestId;
-
-  if (e2eOverlayOpenDelayMs > 0) {
-    await sleep(e2eOverlayOpenDelayMs);
-  }
-
-  if (isOverlayOpenCanceled(requestId)) {
-    restoreMainWindowAfterScreenshot();
-    return false;
-  }
-
-  if (isE2EMockOverlay()) {
-    return openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE, requestId);
-  }
-
-  const imageData = await captureScreen();
-  if (isOverlayOpenCanceled(requestId)) {
-    restoreMainWindowAfterScreenshot();
-    return false;
-  }
-
-  if (imageData) {
-    return openScreenshotOverlayWithImage(imageData, requestId);
-  }
-
-  restoreMainWindowAfterScreenshot();
-  return false;
+  return await requestOpenScreenshotOverlay();
 });
 
 ipcMain.handle('minimize-current-window', async (event) => {
@@ -775,23 +941,40 @@ ipcMain.handle('resize-current-window', async (event, width: number, height: num
 
 app.whenReady().then(() => {
   createWindow();
+  setupTray();
 
   // 娉ㄥ唽鍏ㄥ眬蹇嵎閿紙甯﹀鐢ㄩ€夐」锛?
   registerShortcutWithFallback();
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+      return;
+    }
+    showMainWindow();
   });
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('will-quit', () => {
   // 娉ㄩ攢鎵€鏈夊揩鎹烽敭
   globalShortcut.unregisterAll();
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
 });
 
 app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && isQuitting) {
+    app.quit();
+  }
 });
+
+
 
 
 

@@ -96,6 +96,8 @@ interface ElectronAPI {
   // 翻译相关
   onTranslationComplete: (callback: (imageData: string, translatedText: string) => void) => void;
   offTranslationComplete: () => void;
+  onOpenRecentResult: (callback: () => void) => void;
+  offOpenRecentResult: () => void;
   sendTranslationResult: (imageData: string, translatedText: string) => void;
 
   // OCR 相关

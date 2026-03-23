@@ -63,7 +63,8 @@
       "dist/**/*",
       "node_modules/**/*",
       "package.json",
-      "index.html"
+      "index.html",
+      "public/icon.png"
     ],
     "win": {
       "target": "nsis",

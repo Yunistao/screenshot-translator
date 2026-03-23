@@ -12,6 +12,35 @@ export type TranslatorEngine =
   | 'claude'
   | 'gemini';
 
+export type VisibleTranslatorEngine = Exclude<TranslatorEngine, 'microsoft'>;
+
+export const DEFAULT_TRANSLATOR_ENGINE: VisibleTranslatorEngine = 'openai-compatible';
+
+const VISIBLE_TRANSLATOR_ENGINE_SET = new Set<VisibleTranslatorEngine>([
+  'google',
+  'baidu',
+  'youdao',
+  'openai',
+  'siliconflow',
+  'openai-compatible',
+  'claude',
+  'gemini',
+]);
+
+export const normalizeTranslatorEngine = (engine: unknown): VisibleTranslatorEngine => {
+  if (typeof engine !== 'string') {
+    return DEFAULT_TRANSLATOR_ENGINE;
+  }
+
+  if (engine === 'microsoft') {
+    return DEFAULT_TRANSLATOR_ENGINE;
+  }
+
+  return VISIBLE_TRANSLATOR_ENGINE_SET.has(engine as VisibleTranslatorEngine)
+    ? (engine as VisibleTranslatorEngine)
+    : DEFAULT_TRANSLATOR_ENGINE;
+};
+
 interface TranslatorSettings {
   translatorApiKey?: string;
   translatorRegion?: string;
@@ -50,8 +79,7 @@ const getSettings = (): TranslatorSettings | null => {
 
 const generateMD5 = (value: string): string => SparkMD5.hash(value);
 
-export const TRANSLATOR_ENGINES = [
-  { code: 'microsoft', name: 'Microsoft Translator' },
+export const TRANSLATOR_ENGINES: ReadonlyArray<{ code: VisibleTranslatorEngine; name: string }> = [
   { code: 'google', name: 'Google Translate' },
   { code: 'baidu', name: 'Baidu Translate' },
   { code: 'youdao', name: 'Youdao Translate' },
@@ -526,7 +554,7 @@ export const translateText = async (
   text: string,
   fromLang: string = 'auto',
   toLang: string = 'zh-Hans',
-  engine: TranslatorEngine = 'microsoft'
+  engine: TranslatorEngine = DEFAULT_TRANSLATOR_ENGINE
 ): Promise<string> => {
   switch (engine) {
     case 'google':
@@ -546,8 +574,9 @@ export const translateText = async (
     case 'gemini':
       return translateWithLLMCore(text, 'gemini', fromLang, toLang);
     case 'microsoft':
-    default:
       return translateWithMicrosoft(text, fromLang, toLang);
+    default:
+      return translateWithLLMCore(text, DEFAULT_TRANSLATOR_ENGINE, fromLang, toLang);
   }
 };
 

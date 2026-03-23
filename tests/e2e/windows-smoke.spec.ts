@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { _electron as electron, ElectronApplication, Page } from 'playwright';
@@ -98,6 +98,8 @@ test.describe('Windows smoke', () => {
       env: {
         ...process.env,
         E2E_MOCK_OVERLAY: '1',
+        E2E_SHOW_MAIN_WINDOW: '1',
+        E2E_DISABLE_TRAY: '1',
         DISABLE_DEVTOOLS: '1',
       },
     });
@@ -245,3 +247,4 @@ test.describe('Windows smoke', () => {
     await pinWindow.locator('.pin-root').dispatchEvent('dblclick').catch(() => {});
   });
 });
+

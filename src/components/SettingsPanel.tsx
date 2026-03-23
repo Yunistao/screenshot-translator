@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import { OCR_LANGUAGES } from '../services/ocrService';
-import { TRANSLATOR_ENGINES, type TranslatorEngine } from '../services/translationService';
+import {
+  TRANSLATOR_ENGINES,
+  normalizeTranslatorEngine,
+  type VisibleTranslatorEngine,
+} from '../services/translationService';
 
 interface Settings {
   shortcutKey: string;
   sourceLanguage: string;
   targetLanguage: string;
-  translatorApiKey: string;
-  translatorRegion: string;
-  translatorEndpoint: string;
   autoCopy: boolean;
   fontSize: number;
   opacity: number;
   theme: 'light' | 'dark';
   ocrLanguage: string;
-  translatorEngine: TranslatorEngine;
+  translatorEngine: VisibleTranslatorEngine;
   googleTranslateApiKey: string;
   baiduTranslateAppId: string;
   baiduTranslateAppKey: string;
@@ -41,15 +42,12 @@ const createDefaultSettings = (): Settings => ({
   shortcutKey: 'Alt+S',
   sourceLanguage: 'auto',
   targetLanguage: 'zh-Hans',
-  translatorApiKey: '',
-  translatorRegion: 'global',
-  translatorEndpoint: '',
   autoCopy: true,
   fontSize: 14,
   opacity: 0.9,
   theme: 'light',
   ocrLanguage: 'chi_sim+eng',
-  translatorEngine: 'microsoft',
+  translatorEngine: 'openai-compatible',
   googleTranslateApiKey: '',
   baiduTranslateAppId: '',
   baiduTranslateAppKey: '',
@@ -76,9 +74,12 @@ const normalizeSettings = (value: unknown): Settings => {
     return createDefaultSettings();
   }
 
+  const partial = value as Partial<Settings> & { translatorEngine?: unknown };
+
   return {
     ...createDefaultSettings(),
-    ...(value as Partial<Settings>),
+    ...partial,
+    translatorEngine: normalizeTranslatorEngine(partial.translatorEngine),
   };
 };
 
@@ -86,13 +87,22 @@ const SettingsPanel: React.FC = () => {
   const { tNested } = useI18n();
   const [settings, setSettings] = useState<Settings>(createDefaultSettings());
   const [saved, setSaved] = useState(false);
+  const defaultShortcut = createDefaultSettings().shortcutKey;
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
     if (!savedSettings) return;
 
     try {
-      setSettings(normalizeSettings(JSON.parse(savedSettings)));
+      const parsed = JSON.parse(savedSettings) as Partial<Settings> & { translatorEngine?: unknown };
+      const normalized = normalizeSettings(parsed);
+      const normalizedEngine = normalizeTranslatorEngine(parsed.translatorEngine);
+
+      setSettings(normalized);
+
+      if (parsed.translatorEngine !== normalizedEngine) {
+        localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(normalized));
+      }
     } catch (error) {
       console.error('Failed to parse settings:', error);
     }
@@ -110,8 +120,15 @@ const SettingsPanel: React.FC = () => {
   };
 
   const handleSave = () => {
-    localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(settings));
-    window.electronAPI?.updateShortcut?.(settings.shortcutKey);
+    const shortcutKey = settings.shortcutKey.trim() || defaultShortcut;
+    const nextSettings: Settings = {
+      ...settings,
+      shortcutKey,
+    };
+
+    setSettings(nextSettings);
+    localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(nextSettings));
+    window.electronAPI?.updateShortcut?.(shortcutKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -119,11 +136,11 @@ const SettingsPanel: React.FC = () => {
   const handleReset = () => {
     setSettings(createDefaultSettings());
     localStorage.removeItem('screenshotTranslatorSettings');
+    window.electronAPI?.updateShortcut?.(defaultShortcut);
   };
 
-  const getEngineLabel = (code: TranslatorEngine): string => {
-    const labelKeys: Record<TranslatorEngine, string> = {
-      microsoft: 'settings.translation.engines.microsoft',
+  const getEngineLabel = (code: VisibleTranslatorEngine): string => {
+    const labelKeys: Record<VisibleTranslatorEngine, string> = {
       google: 'settings.translation.engines.google',
       baidu: 'settings.translation.engines.baidu',
       youdao: 'settings.translation.engines.youdao',
@@ -163,28 +180,6 @@ const SettingsPanel: React.FC = () => {
 
       <div className="setting-group">
         <h3>{tNested('settings.translation.title')}</h3>
-
-        <div className="setting-item">
-          <label htmlFor="translatorApiKey">{tNested('settings.translation.providers.microsoftApiKeyLabel')}</label>
-          <input
-            type="password"
-            id="translatorApiKey"
-            value={settings.translatorApiKey}
-            onChange={(e) => handleChange('translatorApiKey', e.target.value)}
-            placeholder={tNested('settings.translation.providers.microsoftApiKeyPlaceholder')}
-          />
-        </div>
-
-        <div className="setting-item">
-          <label htmlFor="translatorRegion">{tNested('settings.translation.providers.microsoftRegionLabel')}</label>
-          <input
-            type="text"
-            id="translatorRegion"
-            value={settings.translatorRegion}
-            onChange={(e) => handleChange('translatorRegion', e.target.value)}
-            placeholder="global"
-          />
-        </div>
 
         <div className="setting-item">
           <label htmlFor="sourceLanguage">{tNested('settings.translation.sourceLabel')}</label>
@@ -234,7 +229,7 @@ const SettingsPanel: React.FC = () => {
           <select
             id="translatorEngine"
             value={settings.translatorEngine}
-            onChange={(e) => handleChange('translatorEngine', e.target.value as TranslatorEngine)}
+            onChange={(e) => handleChange('translatorEngine', e.target.value as VisibleTranslatorEngine)}
           >
             {TRANSLATOR_ENGINES.map(engine => (
               <option key={engine.code} value={engine.code}>{getEngineLabel(engine.code)}</option>

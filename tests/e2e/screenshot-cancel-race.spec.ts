@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+﻿import { expect, test } from '@playwright/test';
 import { _electron as electron, ElectronApplication, Page } from 'playwright';
 
 async function waitForMainWindow(app: ElectronApplication, timeoutMs = 15000): Promise<Page> {
@@ -41,6 +41,8 @@ test('Click cancel quickly after start should not leave gray overlay window', as
       ...process.env,
       E2E_MOCK_OVERLAY: '1',
       E2E_OVERLAY_OPEN_DELAY_MS: '350',
+      E2E_SHOW_MAIN_WINDOW: '1',
+      E2E_DISABLE_TRAY: '1',
       DISABLE_DEVTOOLS: '1',
     },
   });
@@ -64,3 +66,4 @@ test('Click cancel quickly after start should not leave gray overlay window', as
     await app.close();
   }
 });
+

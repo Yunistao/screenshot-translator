@@ -1,6 +1,12 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store/appStore';
-import { translateText, SUPPORTED_LANGUAGES, type TranslatorEngine } from '../services/translationService';
+import {
+  translateText,
+  SUPPORTED_LANGUAGES,
+  DEFAULT_TRANSLATOR_ENGINE,
+  normalizeTranslatorEngine,
+  type TranslatorEngine,
+} from '../services/translationService';
 import { performOCRWithLines } from '../services/ocrService';
 import { renderSelectionExport, renderSelectionExportBlob } from '../services/selectionExport';
 import { OCRLine, SelectionArea } from '../types/electron';
@@ -44,14 +50,31 @@ const ToolBar: React.FC<ToolBarProps> = ({
   const getTranslatorEngine = (): TranslatorEngine => {
     const stored = localStorage.getItem('screenshotTranslatorSettings');
     if (!stored) {
-      return 'microsoft';
+      return DEFAULT_TRANSLATOR_ENGINE;
     }
 
     try {
-      const settings = JSON.parse(stored) as { translatorEngine?: TranslatorEngine };
-      return settings.translatorEngine || 'microsoft';
+      const parsed = JSON.parse(stored) as unknown;
+      if (!parsed || typeof parsed !== 'object') {
+        return DEFAULT_TRANSLATOR_ENGINE;
+      }
+
+      const settings = parsed as Record<string, unknown>;
+      const normalizedEngine = normalizeTranslatorEngine(settings.translatorEngine);
+
+      if (settings.translatorEngine !== normalizedEngine) {
+        localStorage.setItem(
+          'screenshotTranslatorSettings',
+          JSON.stringify({
+            ...settings,
+            translatorEngine: normalizedEngine,
+          }),
+        );
+      }
+
+      return normalizedEngine;
     } catch {
-      return 'microsoft';
+      return DEFAULT_TRANSLATOR_ENGINE;
     }
   };
 

@@ -1,5 +1,73 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
+
+interface ShortcutStatus {
+  registered: boolean;
+  shortcut: string;
+  error?: string;
+}
+
+const DEFAULT_SHORTCUT = 'Alt+S';
+
+function normalizeShortcutKey(rawKey: string): string {
+  const key = rawKey.trim().toLowerCase();
+  if (key === 'esc') {
+    return 'escape';
+  }
+  if (key === 'space' || key === 'spacebar') {
+    return ' ';
+  }
+  return key;
+}
+
+function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
+  const parts = shortcut
+    .split('+')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return false;
+  }
+
+  const shortcutKey = normalizeShortcutKey(parts[parts.length - 1]);
+  const modifierParts = parts.slice(0, -1).map((part) => part.toLowerCase());
+
+  const expectCtrl = modifierParts.includes('ctrl') || modifierParts.includes('control');
+  const expectAlt = modifierParts.includes('alt') || modifierParts.includes('option');
+  const expectShift = modifierParts.includes('shift');
+  const expectMeta =
+    modifierParts.includes('meta') ||
+    modifierParts.includes('cmd') ||
+    modifierParts.includes('command') ||
+    modifierParts.includes('win');
+
+  if (event.ctrlKey !== expectCtrl) return false;
+  if (event.altKey !== expectAlt) return false;
+  if (event.shiftKey !== expectShift) return false;
+  if (event.metaKey !== expectMeta) return false;
+
+  return normalizeShortcutKey(event.key) === shortcutKey;
+}
+
+function getShortcutFromStorage(): string | null {
+  try {
+    const raw = localStorage.getItem('screenshotTranslatorSettings');
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as { shortcutKey?: unknown };
+    if (typeof parsed.shortcutKey !== 'string') {
+      return null;
+    }
+
+    const normalized = parsed.shortcutKey.trim();
+    return normalized || DEFAULT_SHORTCUT;
+  } catch {
+    return null;
+  }
+}
 
 const ScreenshotTool: React.FC = () => {
   const [isSelecting, setIsSelecting] = useState(false);
@@ -7,11 +75,16 @@ const ScreenshotTool: React.FC = () => {
   const [processingProgress, setProcessingProgress] = useState<string>('');
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [shortcutStatus, setShortcutStatus] = useState<{ registered: boolean; shortcut: string }>({
+  const [shortcutStatus, setShortcutStatus] = useState<ShortcutStatus>({
     registered: false,
     shortcut: '',
   });
   const { tNested } = useI18n();
+
+  const activeShortcut = useMemo(
+    () => shortcutStatus.shortcut?.trim() || DEFAULT_SHORTCUT,
+    [shortcutStatus.shortcut],
+  );
 
   const clearError = useCallback(() => {
     setErrorMessage(null);
@@ -59,11 +132,16 @@ const ScreenshotTool: React.FC = () => {
       return;
     }
 
-    window.electronAPI.getShortcutStatus?.().then((status) => {
+    window.electronAPI.onShortcutStatus?.((status) => {
       setShortcutStatus(status);
     });
 
-    window.electronAPI.onShortcutStatus?.((status) => {
+    const preferredShortcut = getShortcutFromStorage();
+    if (preferredShortcut) {
+      window.electronAPI.updateShortcut?.(preferredShortcut);
+    }
+
+    window.electronAPI.getShortcutStatus?.().then((status) => {
       setShortcutStatus(status);
     });
 
@@ -88,16 +166,22 @@ const ScreenshotTool: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      if (e.altKey && e.key.toLowerCase() === 's') {
-        e.preventDefault();
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input,textarea,select,[contenteditable="true"]')) {
+        return;
+      }
+
+      if (matchesShortcut(event, activeShortcut)) {
+        event.preventDefault();
         if (!loading && !isSelecting) {
           await startScreenshot();
         }
+        return;
       }
 
-      if (e.key === 'Escape' && (loading || isSelecting)) {
-        e.preventDefault();
+      if (event.key === 'Escape' && (loading || isSelecting)) {
+        event.preventDefault();
         await cancelScreenshot();
       }
     };
@@ -106,7 +190,7 @@ const ScreenshotTool: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [startScreenshot, cancelScreenshot, loading, isSelecting]);
+  }, [activeShortcut, startScreenshot, cancelScreenshot, loading, isSelecting]);
 
   const handleClickStart = async () => {
     setIsSelecting(true);
@@ -149,7 +233,7 @@ const ScreenshotTool: React.FC = () => {
         <div className="processing-indicator">
           <div className="progress-text">{processingProgress}</div>
           <div className="progress-bar-container">
-            <div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div>
+            <div className="progress-bar" style={{ width: `${progressPercentage}%` }} />
           </div>
           <div className="progress-percentage">{progressPercentage}%</div>
         </div>

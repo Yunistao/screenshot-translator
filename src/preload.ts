@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTranslationComplete: (callback: (imageData: string, translatedText: string) => void) =>
     ipcRenderer.on('translation-complete', (_event, imageData, translatedText) => callback(imageData, translatedText)),
   offTranslationComplete: () => ipcRenderer.removeAllListeners('translation-complete'),
+  onOpenRecentResult: (callback: () => void) =>
+    ipcRenderer.on('open-recent-result', () => callback()),
+  offOpenRecentResult: () => ipcRenderer.removeAllListeners('open-recent-result'),
   sendTranslationResult: (imageData: string, translatedText: string) =>
     ipcRenderer.send('translation-complete', imageData, translatedText),
 
