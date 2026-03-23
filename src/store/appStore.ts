@@ -13,7 +13,7 @@ interface AppState {
   screenshotImage: string | null;
 
   annotations: Annotation[];
-  currentAnnotationType: 'rectangle' | 'arrow' | 'brush' | 'text';
+  currentAnnotationType: 'rectangle' | 'arrow' | 'brush';
   annotationColor: string;
 
   languagePair: LanguagePair;
@@ -45,7 +45,7 @@ interface AppState {
   updateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   removeAnnotation: (id: string) => void;
   clearAnnotations: () => void;
-  setCurrentAnnotationType: (type: 'rectangle' | 'arrow' | 'brush' | 'text') => void;
+  setCurrentAnnotationType: (type: 'rectangle' | 'arrow' | 'brush') => void;
   setAnnotationColor: (color: string) => void;
 
   setLanguagePair: (pair: LanguagePair) => void;

@@ -7,6 +7,7 @@ let pinWindows: Set<BrowserWindow> = new Set();
 let screenshotOverlayActive = false;
 let overlayEscapeShortcutRegistered = false;
 let shouldRestoreMainWindowAfterScreenshot = false;
+let restoreMainWindowOnOverlayClose = true;
 
 // 鍒ゆ柇鏄惁涓哄紑鍙戞ā寮?
 const isDev = () => process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -105,10 +106,14 @@ function restoreMainWindowAfterScreenshot() {
   mainWindow.webContents.focus();
 }
 
-function closeScreenshotOverlayWindow() {
+function closeScreenshotOverlayWindow(options?: { restoreMainWindow?: boolean }) {
+  restoreMainWindowOnOverlayClose = options?.restoreMainWindow ?? true;
   if (screenshotOverlayWindow) {
     screenshotOverlayWindow.close();
     return;
+  }
+  if (restoreMainWindowOnOverlayClose) {
+    restoreMainWindowAfterScreenshot();
   }
   setScreenshotOverlayActive(false);
 }
@@ -164,25 +169,25 @@ function createWindow() {
   console.log('Setting up menu...');
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: '鏂囦欢',
+      label: '\u6587\u4ef6',
       submenu: [
         {
-          label: '閫€鍑?',
+          label: '\u9000\u51fa',
           accelerator: 'Ctrl+Q',
           click: () => app.quit()
         }
       ]
     },
     {
-      label: '缂栬緫',
+      label: '\u7f16\u8f91',
       submenu: [
         {
-          label: '鎾ら攢',
+          label: '\u64a4\u9500',
           accelerator: 'Ctrl+Z',
           role: 'undo'
         },
         {
-          label: '閲嶅仛',
+          label: '\u91cd\u505a',
           accelerator: 'Ctrl+Y',
           role: 'redo'
         },
@@ -190,37 +195,37 @@ function createWindow() {
           type: 'separator'
         },
         {
-          label: '鍓垏',
+          label: '\u526a\u5207',
           accelerator: 'Ctrl+X',
           role: 'cut'
         },
         {
-          label: '澶嶅埗',
+          label: '\u590d\u5236',
           accelerator: 'Ctrl+C',
           role: 'copy'
         },
         {
-          label: '绮樿创',
+          label: '\u7c98\u8d34',
           accelerator: 'Ctrl+V',
           role: 'paste'
         },
         {
-          label: '鍏ㄩ€?',
+          label: '\u5168\u9009',
           accelerator: 'Ctrl+A',
           role: 'selectAll'
         }
       ]
     },
     {
-      label: '鏌ョ湅',
+      label: '\u67e5\u770b',
       submenu: [
         {
-          label: '閲嶆柊鍔犺浇',
+          label: '\u91cd\u65b0\u52a0\u8f7d',
           accelerator: 'Ctrl+R',
           click: () => mainWindow?.reload()
         },
         {
-          label: '寮哄埗閲嶆柊鍔犺浇',
+          label: '\u5f3a\u5236\u91cd\u65b0\u52a0\u8f7d',
           accelerator: 'Ctrl+Shift+R',
           click: () => mainWindow?.webContents.reloadIgnoringCache()
         },
@@ -228,32 +233,32 @@ function createWindow() {
           type: 'separator'
         },
         {
-          label: '寮€鍙戣€呭伐鍏?',
+          label: '\u5f00\u53d1\u8005\u5de5\u5177',
           accelerator: 'Ctrl+Shift+I',
           click: () => mainWindow?.webContents.toggleDevTools()
         }
       ]
     },
     {
-      label: '绐楀彛',
+      label: '\u7a97\u53e3',
       submenu: [
         {
-          label: '鏈€灏忓寲',
+          label: '\u6700\u5c0f\u5316',
           accelerator: 'Ctrl+M',
           role: 'minimize'
         },
         {
-          label: '鍏抽棴',
+          label: '\u5173\u95ed',
           accelerator: 'Ctrl+W',
           role: 'close'
         }
       ]
     },
     {
-      label: '甯姪',
+      label: '\u5e2e\u52a9',
       submenu: [
         {
-          label: '鍏充簬',
+          label: '\u5173\u4e8e',
           click: () => {
             // 鍙互娣诲姞鍏充簬瀵硅瘽妗?
           }
@@ -456,6 +461,8 @@ function createScreenshotOverlayWindow() {
     screenshotOverlayWindow = null;
   }
 
+  restoreMainWindowOnOverlayClose = true;
+
   const { width, height } = screen.getPrimaryDisplay().bounds;
 
   screenshotOverlayWindow = new BrowserWindow({
@@ -492,7 +499,10 @@ function createScreenshotOverlayWindow() {
   screenshotOverlayWindow.on('closed', () => {
     screenshotOverlayWindow = null;
     setScreenshotOverlayActive(false);
-    restoreMainWindowAfterScreenshot();
+    if (restoreMainWindowOnOverlayClose) {
+      restoreMainWindowAfterScreenshot();
+    }
+    restoreMainWindowOnOverlayClose = true;
   });
 
   screenshotOverlayWindow.webContents.on('before-input-event', (_event, input) => {
@@ -546,8 +556,8 @@ ipcMain.handle('minimize-current-window', async (event) => {
 });
 
 // IPC: 鍏抽棴鎴浘瑕嗙洊绐楀彛
-ipcMain.handle('close-screenshot-overlay', () => {
-  closeScreenshotOverlayWindow();
+ipcMain.handle('close-screenshot-overlay', (_event, options?: { restoreMainWindow?: boolean }) => {
+  closeScreenshotOverlayWindow(options);
 });
 
 ipcMain.handle('get-screenshot-overlay-status', () => {

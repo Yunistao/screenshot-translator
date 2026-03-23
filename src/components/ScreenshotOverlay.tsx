@@ -157,12 +157,6 @@ const ScreenshotOverlay: React.FC = () => {
               ctx.stroke();
             }
             break;
-          case 'text':
-            if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
-              ctx.font = '16px Arial';
-              ctx.fillText(annotation.text, annotation.x, annotation.y);
-            }
-            break;
         }
       });
     };
@@ -396,12 +390,13 @@ const ScreenshotOverlay: React.FC = () => {
   }, []);
 
   // 关闭覆盖窗口
-  const handleClose = async () => {
+  const handleClose = async (options?: { restoreMainWindow?: boolean }) => {
     setScreenshotImage(null);
     setSelectionArea(null);
     setShowToolbar(false);
+    setShowTranslationResult(false);
     setIsEditing(false);
-    await window.electronAPI?.closeScreenshotOverlay();
+    await window.electronAPI?.closeScreenshotOverlay(options);
   };
 
   // 开始编辑模式

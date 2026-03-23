@@ -19,7 +19,7 @@ export interface SelectionArea {
 }
 
 // 标注类型
-export type AnnotationType = 'rectangle' | 'arrow' | 'brush' | 'text';
+export type AnnotationType = 'rectangle' | 'arrow' | 'brush';
 
 // 标注数据
 export interface Annotation {
@@ -31,9 +31,6 @@ export interface Annotation {
   endX?: number;
   endY?: number;
   points?: { x: number; y: number }[];
-  text?: string;
-  x?: number;
-  y?: number;
 }
 
 // 语言对
@@ -88,7 +85,7 @@ interface ElectronAPI {
   captureScreen: () => Promise<string | null>;
   minimizeCurrentWindow: () => Promise<boolean>;
   openScreenshotOverlay: () => Promise<boolean>;
-  closeScreenshotOverlay: () => Promise<void>;
+  closeScreenshotOverlay: (options?: { restoreMainWindow?: boolean }) => Promise<void>;
   getScreenshotOverlayStatus: () => Promise<ScreenshotOverlayStatus>;
   onScreenshotOverlayStatus: (callback: (status: ScreenshotOverlayStatus) => void) => void;
   offScreenshotOverlayStatus: () => void;

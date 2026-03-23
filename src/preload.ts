@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
   minimizeCurrentWindow: () => ipcRenderer.invoke('minimize-current-window'),
   openScreenshotOverlay: () => ipcRenderer.invoke('open-screenshot-overlay'),
-  closeScreenshotOverlay: () => ipcRenderer.invoke('close-screenshot-overlay'),
+  closeScreenshotOverlay: (options?: { restoreMainWindow?: boolean }) =>
+    ipcRenderer.invoke('close-screenshot-overlay', options),
   getScreenshotOverlayStatus: () => ipcRenderer.invoke('get-screenshot-overlay-status'),
   onScreenshotOverlayStatus: (callback: (status: { active: boolean }) => void) =>
     ipcRenderer.on('screenshot-overlay-status', (_event, status) => callback(status)),

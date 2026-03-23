@@ -9,7 +9,7 @@ interface AnnotationEditorProps {
   onFinish: () => void;
 }
 
-type ToolType = 'rectangle' | 'arrow' | 'brush' | 'text';
+type ToolType = 'rectangle' | 'arrow' | 'brush';
 type Point = { x: number; y: number };
 
 const COLORS = ['#ff0000', '#ff9800', '#ffff00', '#00ff00', '#00ffff', '#0080ff', '#8000ff', '#ff00ff', '#000000', '#ffffff'];
@@ -35,8 +35,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
-  const [textInput, setTextInput] = useState('');
-  const [textPosition, setTextPosition] = useState<Point | null>(null);
   const [undoStack, setUndoStack] = useState<Annotation[][]>([]);
 
   useEffect(() => {
@@ -138,13 +136,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
         }
         break;
       }
-      case 'text': {
-        if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
-          ctx.font = '16px Arial';
-          ctx.fillText(annotation.text, annotation.x - offsetX, annotation.y - offsetY);
-        }
-        break;
-      }
       default:
         break;
     }
@@ -181,23 +172,8 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
       }
     }
 
-    if (currentTool === 'text' && textPosition && textInput.trim()) {
-      ctx.setLineDash([]);
-      ctx.font = '16px Arial';
-      const metrics = ctx.measureText(textInput);
-      const paddingX = 6;
-      const paddingY = 4;
-      const boxWidth = Math.max(40, metrics.width + paddingX * 2);
-      const boxHeight = 24;
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      ctx.fillRect(textPosition.x - paddingX, textPosition.y - boxHeight + paddingY, boxWidth, boxHeight);
-      ctx.fillStyle = annotationColor;
-      ctx.fillText(textInput, textPosition.x, textPosition.y);
-    }
-
     ctx.restore();
-  }, [annotationColor, currentPoints, currentTool, drawArrow, isDrawing, startPoint, textInput, textPosition]);
+  }, [annotationColor, currentPoints, currentTool, drawArrow, isDrawing, startPoint]);
 
   const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -366,23 +342,12 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   }, [finishDrawing, isDrawing, updateDrawing]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
-    if (currentTool === 'text') {
-      const point = getCanvasPosition(event.clientX, event.clientY);
-      if (!point) {
-        return;
-      }
-
-      setTextPosition(point);
-      setTextInput('');
-      return;
-    }
-
     if (event.button !== 0) {
       return;
     }
 
     beginDrawing(event.clientX, event.clientY);
-  }, [beginDrawing, currentTool, getCanvasPosition]);
+  }, [beginDrawing]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
     updateDrawing(event.clientX, event.clientY);
@@ -391,28 +356,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const handleMouseUp = useCallback((event: React.MouseEvent) => {
     finishDrawing(event.clientX, event.clientY);
   }, [finishDrawing]);
-
-  const handleTextSubmit = useCallback(() => {
-    if (!textPosition || !textInput.trim()) {
-      setTextPosition(null);
-      setTextInput('');
-      return;
-    }
-
-    setUndoStack((previous) => [...previous, [...annotations]]);
-
-    addAnnotation({
-      id: Date.now().toString(),
-      type: 'text',
-      color: annotationColor,
-      text: textInput,
-      x: textPosition.x + selectionArea.x,
-      y: textPosition.y + selectionArea.y,
-    });
-
-    setTextPosition(null);
-    setTextInput('');
-  }, [addAnnotation, annotationColor, annotations, selectionArea, textInput, textPosition]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) {
@@ -442,9 +385,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           </button>
           <button className={currentTool === 'brush' ? 'active' : ''} onClick={() => setCurrentTool('brush')} title="画笔">
             ✎
-          </button>
-          <button className={currentTool === 'text' ? 'active' : ''} onClick={() => setCurrentTool('text')} title="文本">
-            T
           </button>
         </div>
 
@@ -487,35 +427,8 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{
-            cursor: currentTool === 'text' ? 'text' : 'crosshair',
-          }}
+          style={{ cursor: 'crosshair' }}
         />
-
-        {textPosition && (
-          <input
-            type="text"
-            className="text-input"
-            style={{
-              left: textPosition.x,
-              top: textPosition.y - 16,
-              color: annotationColor,
-            }}
-            value={textInput}
-            onChange={(event) => setTextInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                handleTextSubmit();
-              }
-              if (event.key === 'Escape') {
-                setTextPosition(null);
-                setTextInput('');
-              }
-            }}
-            onBlur={handleTextSubmit}
-            autoFocus
-          />
-        )}
       </div>
     </div>
   );

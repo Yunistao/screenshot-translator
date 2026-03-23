@@ -2,14 +2,15 @@
 import { useAppStore } from '../store/appStore';
 import { translateText, SUPPORTED_LANGUAGES, type TranslatorEngine } from '../services/translationService';
 import { performOCRWithLines } from '../services/ocrService';
-import { Annotation, OCRLine, SelectionArea } from '../types/electron';
+import { renderSelectionExport, renderSelectionExportBlob } from '../services/selectionExport';
+import { OCRLine, SelectionArea } from '../types/electron';
 import './ToolBar.css';
 
 interface ToolBarProps {
   position: { x: number; y: number };
   selectionArea: SelectionArea;
   screenshotImage: string;
-  onClose: () => void;
+  onClose: (options?: { restoreMainWindow?: boolean }) => void;
   onStartEdit: () => void;
   onTranslationComplete?: () => void;
 }
@@ -33,6 +34,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
     showTranslationResult,
     translationDisplayMode,
     setTranslationDisplayMode,
+    ocrLines,
     setOcrLines,
     annotations,
   } = useAppStore();
@@ -53,149 +55,16 @@ const ToolBar: React.FC<ToolBarProps> = ({
     }
   };
 
-  const cropImage = (imageData: string, area: SelectionArea): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = area.width;
-        canvas.height = area.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
+  const shouldIncludeTranslation = showTranslationResult && ocrLines.some((line) => line.translatedText?.trim());
 
-        ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, area.width, area.height);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = imageData;
+  const renderCurrentSelection = async () =>
+    renderSelectionExport({
+      screenshotImage,
+      selectionArea,
+      annotations,
+      ocrLines,
+      includeTranslation: shouldIncludeTranslation,
     });
-  };
-
-  const drawArrow = (
-    ctx: CanvasRenderingContext2D,
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number,
-  ) => {
-    const headLength = 15;
-    const angle = Math.atan2(toY - fromY, toX - fromX);
-
-    ctx.beginPath();
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(toX, toY);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(toX, toY);
-    ctx.lineTo(
-      toX - headLength * Math.cos(angle - Math.PI / 6),
-      toY - headLength * Math.sin(angle - Math.PI / 6),
-    );
-    ctx.lineTo(
-      toX - headLength * Math.cos(angle + Math.PI / 6),
-      toY - headLength * Math.sin(angle + Math.PI / 6),
-    );
-    ctx.closePath();
-    ctx.fill();
-  };
-
-  const drawAnnotations = (
-    ctx: CanvasRenderingContext2D,
-    annotationsToRender: Annotation[],
-    offsetX: number,
-    offsetY: number,
-  ) => {
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    for (const annotation of annotationsToRender) {
-      ctx.strokeStyle = annotation.color;
-      ctx.fillStyle = annotation.color;
-
-      switch (annotation.type) {
-        case 'rectangle':
-          if (
-            annotation.startX !== undefined &&
-            annotation.startY !== undefined &&
-            annotation.endX !== undefined &&
-            annotation.endY !== undefined
-          ) {
-            const x = Math.min(annotation.startX, annotation.endX) - offsetX;
-            const y = Math.min(annotation.startY, annotation.endY) - offsetY;
-            const width = Math.abs(annotation.endX - annotation.startX);
-            const height = Math.abs(annotation.endY - annotation.startY);
-            ctx.strokeRect(x, y, width, height);
-          }
-          break;
-        case 'arrow':
-          if (
-            annotation.startX !== undefined &&
-            annotation.startY !== undefined &&
-            annotation.endX !== undefined &&
-            annotation.endY !== undefined
-          ) {
-            drawArrow(
-              ctx,
-              annotation.startX - offsetX,
-              annotation.startY - offsetY,
-              annotation.endX - offsetX,
-              annotation.endY - offsetY,
-            );
-          }
-          break;
-        case 'brush':
-          if (annotation.points && annotation.points.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(annotation.points[0].x - offsetX, annotation.points[0].y - offsetY);
-            annotation.points.forEach((point) => {
-              ctx.lineTo(point.x - offsetX, point.y - offsetY);
-            });
-            ctx.stroke();
-          }
-          break;
-        case 'text':
-          if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
-            ctx.font = '16px Arial';
-            ctx.fillText(annotation.text, annotation.x - offsetX, annotation.y - offsetY);
-          }
-          break;
-      }
-    }
-  };
-
-  const composePinnedImage = async (imageData: string, area: SelectionArea): Promise<string> => {
-    const croppedImage = await cropImage(imageData, area);
-
-    if (annotations.length === 0) {
-      return croppedImage;
-    }
-
-    const img = new Image();
-    img.src = croppedImage;
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Failed to load cropped image'));
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = area.width;
-    canvas.height = area.height;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return croppedImage;
-    }
-
-    ctx.drawImage(img, 0, 0, area.width, area.height);
-    drawAnnotations(ctx, annotations, area.x, area.y);
-
-    return canvas.toDataURL('image/png');
-  };
 
   const handleOCRAndTranslate = async () => {
     if (!screenshotImage || !selectionArea) {
@@ -206,7 +75,13 @@ const ToolBar: React.FC<ToolBarProps> = ({
     setIsTranslating(true);
 
     try {
-      const croppedImage = await cropImage(screenshotImage, selectionArea);
+      const croppedImage = await renderSelectionExport({
+        screenshotImage,
+        selectionArea,
+        annotations: [],
+        ocrLines: [],
+        includeTranslation: false,
+      });
       const ocrResult = await performOCRWithLines(croppedImage);
 
       setOcrText(ocrResult.text);
@@ -253,9 +128,9 @@ const ToolBar: React.FC<ToolBarProps> = ({
       return;
     }
 
-    const pinnedImage = await composePinnedImage(screenshotImage, selectionArea);
+    const pinnedImage = await renderCurrentSelection();
     await window.electronAPI?.createPinWindow(pinnedImage);
-    onClose();
+    onClose({ restoreMainWindow: false });
   };
 
   const handleCopy = async () => {
@@ -263,12 +138,16 @@ const ToolBar: React.FC<ToolBarProps> = ({
       return;
     }
 
-    const croppedImage = await cropImage(screenshotImage, selectionArea);
-
     try {
-      const response = await fetch(croppedImage);
-      const blob = await response.blob();
+      const blob = await renderSelectionExportBlob({
+        screenshotImage,
+        selectionArea,
+        annotations,
+        ocrLines,
+        includeTranslation: shouldIncludeTranslation,
+      });
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      onClose({ restoreMainWindow: false });
     } catch (error) {
       console.error('复制失败:', error);
     }
@@ -283,7 +162,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
 
   const handleFinish = () => {
     setShowTranslationResult(false);
-    onClose();
+    onClose({ restoreMainWindow: false });
   };
 
   const handleToggleTranslationMode = () => {

@@ -122,18 +122,19 @@ const SettingsPanel: React.FC = () => {
   };
 
   const getEngineLabel = (code: TranslatorEngine): string => {
-    const labels: Record<TranslatorEngine, string> = {
-      microsoft: '微软翻译',
-      google: 'Google 翻译',
-      baidu: '百度翻译',
-      youdao: '有道翻译',
-      openai: 'OpenAI (GPT)',
-      siliconflow: 'SiliconFlow',
-      'openai-compatible': 'OpenAI 兼容',
-      claude: 'Claude',
-      gemini: 'Gemini',
+    const labelKeys: Record<TranslatorEngine, string> = {
+      microsoft: 'settings.translation.engines.microsoft',
+      google: 'settings.translation.engines.google',
+      baidu: 'settings.translation.engines.baidu',
+      youdao: 'settings.translation.engines.youdao',
+      openai: 'settings.translation.engines.openai',
+      siliconflow: 'settings.translation.engines.siliconflow',
+      'openai-compatible': 'settings.translation.engines.openaiCompatible',
+      claude: 'settings.translation.engines.claude',
+      gemini: 'settings.translation.engines.gemini',
     };
-    return labels[code] || code;
+    const key = labelKeys[code];
+    return key ? tNested(key) : code;
   };
 
   return (
@@ -164,18 +165,18 @@ const SettingsPanel: React.FC = () => {
         <h3>{tNested('settings.translation.title')}</h3>
 
         <div className="setting-item">
-          <label htmlFor="translatorApiKey">微软翻译 API 密钥</label>
+          <label htmlFor="translatorApiKey">{tNested('settings.translation.providers.microsoftApiKeyLabel')}</label>
           <input
             type="password"
             id="translatorApiKey"
             value={settings.translatorApiKey}
             onChange={(e) => handleChange('translatorApiKey', e.target.value)}
-            placeholder="用于微软翻译（可选）"
+            placeholder={tNested('settings.translation.providers.microsoftApiKeyPlaceholder')}
           />
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorRegion">微软区域</label>
+          <label htmlFor="translatorRegion">{tNested('settings.translation.providers.microsoftRegionLabel')}</label>
           <input
             type="text"
             id="translatorRegion"
@@ -229,7 +230,7 @@ const SettingsPanel: React.FC = () => {
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorEngine">翻译引擎</label>
+          <label htmlFor="translatorEngine">{tNested('settings.translation.engineLabel')}</label>
           <select
             id="translatorEngine"
             value={settings.translatorEngine}
@@ -243,7 +244,7 @@ const SettingsPanel: React.FC = () => {
 
         {settings.translatorEngine === 'google' && (
           <div className="setting-item">
-            <label htmlFor="googleTranslateApiKey">Google 翻译 API 密钥</label>
+            <label htmlFor="googleTranslateApiKey">{tNested('settings.translation.providers.googleApiKeyLabel')}</label>
             <input
               type="password"
               id="googleTranslateApiKey"
@@ -257,7 +258,7 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'baidu' && (
           <>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppId">百度 App ID</label>
+              <label htmlFor="baiduTranslateAppId">{tNested('settings.translation.providers.baiduAppIdLabel')}</label>
               <input
                 type="text"
                 id="baiduTranslateAppId"
@@ -267,7 +268,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppKey">百度 App Key</label>
+              <label htmlFor="baiduTranslateAppKey">{tNested('settings.translation.providers.baiduAppKeyLabel')}</label>
               <input
                 type="password"
                 id="baiduTranslateAppKey"
@@ -282,7 +283,7 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'youdao' && (
           <>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppKey">有道 App Key</label>
+              <label htmlFor="youdaoTranslateAppKey">{tNested('settings.translation.providers.youdaoAppKeyLabel')}</label>
               <input
                 type="text"
                 id="youdaoTranslateAppKey"
@@ -292,7 +293,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppSecret">有道 App Secret</label>
+              <label htmlFor="youdaoTranslateAppSecret">{tNested('settings.translation.providers.youdaoAppSecretLabel')}</label>
               <input
                 type="password"
                 id="youdaoTranslateAppSecret"
@@ -317,7 +318,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiBaseUrl">API 基础地址（可选）</label>
+              <label htmlFor="openaiBaseUrl">{tNested('settings.translation.baseUrlOptionalLabel')}</label>
               <input
                 type="text"
                 id="openaiBaseUrl"
@@ -327,7 +328,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiModel">模型</label>
+              <label htmlFor="openaiModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="openaiModel"
@@ -352,7 +353,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="siliconflowBaseUrl">API 基础地址</label>
+              <label htmlFor="siliconflowBaseUrl">{tNested('settings.translation.baseUrlLabel')}</label>
               <input
                 type="text"
                 id="siliconflowBaseUrl"
@@ -362,7 +363,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="siliconflowModel">模型</label>
+              <label htmlFor="siliconflowModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="siliconflowModel"
@@ -377,17 +378,17 @@ const SettingsPanel: React.FC = () => {
         {settings.translatorEngine === 'openai-compatible' && (
           <>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleApiKey">API 密钥（可选）</label>
+              <label htmlFor="openaiCompatibleApiKey">{tNested('settings.translation.apiKeyOptionalLabel')}</label>
               <input
                 type="password"
                 id="openaiCompatibleApiKey"
                 value={settings.openaiCompatibleApiKey}
                 onChange={(e) => handleChange('openaiCompatibleApiKey', e.target.value)}
-                placeholder="内部网关可留空"
+                placeholder={tNested('settings.translation.openaiCompatibleApiKeyPlaceholder')}
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleBaseUrl">API 基础地址</label>
+              <label htmlFor="openaiCompatibleBaseUrl">{tNested('settings.translation.baseUrlLabel')}</label>
               <input
                 type="text"
                 id="openaiCompatibleBaseUrl"
@@ -397,7 +398,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiCompatibleModel">模型名称</label>
+              <label htmlFor="openaiCompatibleModel">{tNested('settings.translation.modelNameLabel')}</label>
               <input
                 type="text"
                 id="openaiCompatibleModel"
@@ -422,7 +423,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeBaseUrl">API 基础地址（可选）</label>
+              <label htmlFor="claudeBaseUrl">{tNested('settings.translation.baseUrlOptionalLabel')}</label>
               <input
                 type="text"
                 id="claudeBaseUrl"
@@ -432,7 +433,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeModel">模型</label>
+              <label htmlFor="claudeModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="claudeModel"
@@ -457,7 +458,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="geminiModel">模型</label>
+              <label htmlFor="geminiModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="geminiModel"
@@ -471,9 +472,9 @@ const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="setting-group">
-        <h3>OCR 设置</h3>
+        <h3>{tNested('settings.ocrSection.title')}</h3>
         <div className="setting-item">
-          <label htmlFor="ocrLanguage">OCR 语言</label>
+          <label htmlFor="ocrLanguage">{tNested('settings.ocrSection.languageLabel')}</label>
           <select
             id="ocrLanguage"
             value={settings.ocrLanguage}
