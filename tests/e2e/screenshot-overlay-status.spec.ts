@@ -206,6 +206,23 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
     await expect(primaryButton).toBeEnabled();
   });
 
+  test('Cancel button closes overlay after making a selection rectangle', async () => {
+    const primaryButton = mainWindow.locator('.primary-button');
+
+    await primaryButton.click();
+    const overlayWindow = await waitForWindow(app, (url) => url.includes('overlay=true'));
+    await overlayWindow.waitForLoadState('domcontentloaded');
+    await expect.poll(() => isMainWindowMinimized(app)).toBe(true);
+
+    await selectRectOnOverlay(overlayWindow);
+    await expect(overlayWindow.locator('.toolbar')).toBeVisible();
+    await overlayWindow.getByRole('button', { name: '取消' }).click().catch(() => {});
+
+    await expect.poll(() => getOverlayWindowCount(app)).toBe(0);
+    await expect.poll(() => isMainWindowMinimized(app)).toBe(false);
+    await expect(primaryButton).toBeEnabled();
+  });
+
   test('Pin window should render image-only content and close on double click', async () => {
     const primaryButton = mainWindow.locator('.primary-button');
 
@@ -440,6 +457,11 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
     expect(engineOptions).toEqual(
       expect.arrayContaining(['微软翻译', 'Google 翻译', '百度翻译', '有道翻译', 'OpenAI 兼容']),
     );
+  });
+
+  test('Main app should not expose history panel entry button', async () => {
+    await expect(mainWindow.getByRole('button', { name: '显示历史记录' })).toHaveCount(0);
+    await expect(mainWindow.getByRole('button', { name: '隐藏历史记录' })).toHaveCount(0);
   });
 
   test('Copy should close overlay, keep main window hidden, and export annotations to clipboard', async () => {

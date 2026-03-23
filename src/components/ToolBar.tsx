@@ -234,7 +234,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
                 完成
               </button>
 
-              <button onClick={onClose} className="btn-cancel" title="取消 (Esc)">
+              <button onClick={() => onClose()} className="btn-cancel" title="取消 (Esc)">
                 取消
               </button>
             </>
@@ -261,7 +261,7 @@ const ToolBar: React.FC<ToolBarProps> = ({
                 复制
               </button>
 
-              <button onClick={onClose} className="btn-cancel" title="取消 (Esc)">
+              <button onClick={() => onClose()} className="btn-cancel" title="取消 (Esc)">
                 取消
               </button>
             </>

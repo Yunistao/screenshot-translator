@@ -59,6 +59,25 @@ const ScreenshotOverlay: React.FC = () => {
     };
   }, [setScreenshotImage]);
 
+  useEffect(() => {
+    if (screenshotImage) {
+      return;
+    }
+
+    let canceled = false;
+    const timer = window.setTimeout(async () => {
+      const fallbackImage = await window.electronAPI?.getOverlayScreenshot?.();
+      if (!canceled && fallbackImage) {
+        setScreenshotImage(fallbackImage);
+      }
+    }, 120);
+
+    return () => {
+      canceled = true;
+      window.clearTimeout(timer);
+    };
+  }, [screenshotImage, setScreenshotImage]);
+
   // 监听窗口大小变化
   useEffect(() => {
     const handleResize = () => {
@@ -390,13 +409,26 @@ const ScreenshotOverlay: React.FC = () => {
   }, []);
 
   // 关闭覆盖窗口
-  const handleClose = async (options?: { restoreMainWindow?: boolean }) => {
+  const normalizeCloseOptions = (options?: unknown): { restoreMainWindow?: boolean } | undefined => {
+    if (!options || typeof options !== 'object') {
+      return undefined;
+    }
+
+    const restoreMainWindow = (options as { restoreMainWindow?: unknown }).restoreMainWindow;
+    if (typeof restoreMainWindow !== 'boolean') {
+      return undefined;
+    }
+
+    return { restoreMainWindow };
+  };
+
+  const handleClose = async (options?: unknown) => {
     setScreenshotImage(null);
     setSelectionArea(null);
     setShowToolbar(false);
     setShowTranslationResult(false);
     setIsEditing(false);
-    await window.electronAPI?.closeScreenshotOverlay(options);
+    await window.electronAPI?.closeScreenshotOverlay(normalizeCloseOptions(options));
   };
 
   // 开始编辑模式

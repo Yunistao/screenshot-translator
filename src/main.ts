@@ -8,14 +8,26 @@ let screenshotOverlayActive = false;
 let overlayEscapeShortcutRegistered = false;
 let shouldRestoreMainWindowAfterScreenshot = false;
 let restoreMainWindowOnOverlayClose = true;
+let overlayOpenRequestId = 0;
+let overlayOpenCanceledUpToId = 0;
+let latestOverlayScreenshot: string | null = null;
 
 // 鍒ゆ柇鏄惁涓哄紑鍙戞ā寮?
 const isDev = () => process.env.NODE_ENV === 'development' || !app.isPackaged;
 const shouldOpenDevTools = () =>
   isDev() && process.env.ENABLE_DEVTOOLS === '1' && process.env.DISABLE_DEVTOOLS !== '1';
 const isE2EMockOverlay = () => process.env.E2E_MOCK_OVERLAY === '1';
+const e2eOverlayOpenDelayMs = Math.max(0, Number(process.env.E2E_OVERLAY_OPEN_DELAY_MS ?? '0'));
 const MOCK_SCREENSHOT_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9oN2l6sAAAAASUVORK5CYII=';
 const OVERLAY_ESC_SHORTCUT = 'Escape';
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isOverlayOpenCanceled(requestId: number): boolean {
+  return requestId <= overlayOpenCanceledUpToId;
+}
 
 function registerOverlayEscapeShortcut() {
   if (overlayEscapeShortcutRegistered) {
@@ -108,6 +120,8 @@ function restoreMainWindowAfterScreenshot() {
 
 function closeScreenshotOverlayWindow(options?: { restoreMainWindow?: boolean }) {
   restoreMainWindowOnOverlayClose = options?.restoreMainWindow ?? true;
+  overlayOpenCanceledUpToId = overlayOpenRequestId;
+  latestOverlayScreenshot = null;
   if (screenshotOverlayWindow) {
     screenshotOverlayWindow.close();
     return;
@@ -118,11 +132,27 @@ function closeScreenshotOverlayWindow(options?: { restoreMainWindow?: boolean })
   setScreenshotOverlayActive(false);
 }
 
-function openScreenshotOverlayWithImage(imageData: string) {
+function openScreenshotOverlayWithImage(imageData: string, requestId?: number): boolean {
+  if (requestId !== undefined && isOverlayOpenCanceled(requestId)) {
+    return false;
+  }
+
+  latestOverlayScreenshot = imageData;
   createScreenshotOverlayWindow();
+  if (!screenshotOverlayWindow) {
+    latestOverlayScreenshot = null;
+    return false;
+  }
+
   screenshotOverlayWindow?.webContents.once('did-finish-load', () => {
+    if (requestId !== undefined && isOverlayOpenCanceled(requestId)) {
+      closeScreenshotOverlayWindow({ restoreMainWindow: true });
+      return;
+    }
     screenshotOverlayWindow?.webContents.send('screenshot-captured', imageData);
   });
+
+  return true;
 }
 
 function createWindow() {
@@ -498,6 +528,7 @@ function createScreenshotOverlayWindow() {
 
   screenshotOverlayWindow.on('closed', () => {
     screenshotOverlayWindow = null;
+    latestOverlayScreenshot = null;
     setScreenshotOverlayActive(false);
     if (restoreMainWindowOnOverlayClose) {
       restoreMainWindowAfterScreenshot();
@@ -533,17 +564,29 @@ ipcMain.handle('capture-screen', async () => {
 // IPC: 鎵撳紑鎴浘瑕嗙洊绐楀彛
 ipcMain.handle('open-screenshot-overlay', async () => {
   minimizeMainWindowForScreenshot();
+  const requestId = ++overlayOpenRequestId;
+
+  if (e2eOverlayOpenDelayMs > 0) {
+    await sleep(e2eOverlayOpenDelayMs);
+  }
+
+  if (isOverlayOpenCanceled(requestId)) {
+    restoreMainWindowAfterScreenshot();
+    return false;
+  }
 
   if (isE2EMockOverlay()) {
-    openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE);
-    return true;
+    return openScreenshotOverlayWithImage(MOCK_SCREENSHOT_IMAGE, requestId);
   }
 
   const imageData = await captureScreen();
-  if (imageData) {
-    openScreenshotOverlayWithImage(imageData);
+  if (isOverlayOpenCanceled(requestId)) {
+    restoreMainWindowAfterScreenshot();
+    return false;
+  }
 
-    return true;
+  if (imageData) {
+    return openScreenshotOverlayWithImage(imageData, requestId);
   }
 
   restoreMainWindowAfterScreenshot();
@@ -566,6 +609,9 @@ ipcMain.handle('get-screenshot-overlay-status', () => {
 
 // IPC: 鑾峰彇鎴浘瑕嗙洊绐楀彛鐨勬埅鍥炬暟鎹?
 ipcMain.handle('get-overlay-screenshot', async () => {
+  if (latestOverlayScreenshot) {
+    return latestOverlayScreenshot;
+  }
   return await captureScreen();
 });
 
