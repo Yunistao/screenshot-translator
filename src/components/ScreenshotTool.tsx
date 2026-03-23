@@ -7,61 +7,86 @@ const ScreenshotTool: React.FC = () => {
   const [processingProgress, setProcessingProgress] = useState<string>('');
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [shortcutStatus, setShortcutStatus] = useState<{ registered: boolean; shortcut: string }>({ registered: false, shortcut: '' });
+  const [shortcutStatus, setShortcutStatus] = useState<{ registered: boolean; shortcut: string }>({
+    registered: false,
+    shortcut: '',
+  });
   const { tNested } = useI18n();
 
-  // 清除错误信息
   const clearError = useCallback(() => {
     setErrorMessage(null);
   }, []);
 
-  // 打开截图覆盖窗口
-  const startScreenshot = useCallback(async () => {
+  const startScreenshot = useCallback(async (): Promise<boolean> => {
     clearError();
 
-    // 检查 Electron API 是否可用
     if (!window.electronAPI?.openScreenshotOverlay) {
       const errorMsg = '截图功能不可用：请确保在 Electron 环境中运行此应用';
       console.error(errorMsg);
       setErrorMessage(errorMsg);
       setTimeout(clearError, 5000);
-      return;
+      return false;
     }
 
-    // 打开截图覆盖窗口
-    await window.electronAPI.openScreenshotOverlay();
+    await window.electronAPI?.minimizeCurrentWindow?.();
+    const opened = await window.electronAPI.openScreenshotOverlay();
+    if (!opened) {
+      setIsSelecting(false);
+    }
+    return opened;
   }, [clearError]);
 
-  // 取消截图操作
-  const cancelScreenshot = useCallback(() => {
+  const cancelScreenshot = useCallback(async () => {
     setLoading(false);
-    setIsSelecting(false);
     setProcessingProgress('');
     setProgressPercentage(0);
+
+    try {
+      await window.electronAPI?.closeScreenshotOverlay?.();
+    } catch (error) {
+      console.error('关闭截图覆盖层失败:', error);
+    }
+
+    setIsSelecting(false);
     setErrorMessage('操作已取消');
     setTimeout(clearError, 2000);
   }, [clearError]);
 
-  // 加载设置并检查 Electron API
   useEffect(() => {
-    // 检查 Electron API 是否可用
     if (!window.electronAPI) {
       console.error('Electron API 未加载，请确保在 Electron 环境中运行');
       setErrorMessage('Electron API 未加载，请重启应用');
-    } else {
-      // 获取快捷键状态
-      window.electronAPI.getShortcutStatus?.().then(status => {
-        setShortcutStatus(status);
-      });
-
-      // 监听快捷键状态变化
-      window.electronAPI.onShortcutStatus?.((status) => {
-        setShortcutStatus(status);
-      });
+      return;
     }
+
+    window.electronAPI.getShortcutStatus?.().then((status) => {
+      setShortcutStatus(status);
+    });
+
+    window.electronAPI.onShortcutStatus?.((status) => {
+      setShortcutStatus(status);
+    });
+
+    window.electronAPI.getScreenshotOverlayStatus?.().then((status) => {
+      setIsSelecting(Boolean(status?.active));
+    });
+
+    window.electronAPI.onScreenshotOverlayStatus?.((status) => {
+      const active = Boolean(status?.active);
+      setIsSelecting(active);
+      if (!active) {
+        setLoading(false);
+        setProcessingProgress('');
+        setProgressPercentage(0);
+      }
+    });
+
+    return () => {
+      window.electronAPI?.offShortcutStatus?.();
+      window.electronAPI?.offScreenshotOverlayStatus?.();
+    };
   }, []);
 
-  // 注册本地键盘事件处理器（备用）
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === 's') {
@@ -70,15 +95,14 @@ const ScreenshotTool: React.FC = () => {
           await startScreenshot();
         }
       }
-      // 按ESC取消操作
+
       if (e.key === 'Escape' && (loading || isSelecting)) {
         e.preventDefault();
-        cancelScreenshot();
+        await cancelScreenshot();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -86,18 +110,19 @@ const ScreenshotTool: React.FC = () => {
 
   const handleClickStart = async () => {
     setIsSelecting(true);
-    await startScreenshot();
+    const opened = await startScreenshot();
+    if (!opened) {
+      setIsSelecting(false);
+    }
   };
 
   return (
     <div className="screenshot-tool">
-      {/* 快捷键状态提示 */}
       {shortcutStatus.shortcut && (
         <div className={`shortcut-status ${shortcutStatus.registered ? 'success' : 'warning'}`}>
           {shortcutStatus.registered
             ? `快捷键 ${shortcutStatus.shortcut} 已启用`
-            : `快捷键 ${shortcutStatus.shortcut} 注册失败，请检查是否被其他应用占用，或在设置中更换快捷键`
-          }
+            : `快捷键 ${shortcutStatus.shortcut} 注册失败，请检查是否被其他应用占用，或在设置中更换快捷键`}
         </div>
       )}
 
@@ -107,13 +132,14 @@ const ScreenshotTool: React.FC = () => {
           disabled={isSelecting || loading}
           className="primary-button"
         >
-          {loading ? tNested('screenshot.processing') : isSelecting ? tNested('screenshot.selecting') : `开始截图${shortcutStatus.registered ? ` (${shortcutStatus.shortcut})` : ''}`}
+          {loading
+            ? tNested('screenshot.processing')
+            : isSelecting
+              ? tNested('screenshot.selecting')
+              : `${tNested('screenshot.start')}${shortcutStatus.registered ? ` (${shortcutStatus.shortcut})` : ''}`}
         </button>
         {(loading || isSelecting) && (
-          <button
-            onClick={cancelScreenshot}
-            className="secondary-button"
-          >
+          <button onClick={cancelScreenshot} className="secondary-button">
             {tNested('screenshot.cancel')}
           </button>
         )}
@@ -123,10 +149,7 @@ const ScreenshotTool: React.FC = () => {
         <div className="processing-indicator">
           <div className="progress-text">{processingProgress}</div>
           <div className="progress-bar-container">
-            <div
-              className="progress-bar"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
+            <div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div>
           </div>
           <div className="progress-percentage">{progressPercentage}%</div>
         </div>
@@ -135,7 +158,9 @@ const ScreenshotTool: React.FC = () => {
       {errorMessage && (
         <div className="error-message">
           {errorMessage}
-          <button onClick={clearError} className="error-close">×</button>
+          <button onClick={clearError} className="error-close">
+            ×
+          </button>
         </div>
       )}
     </div>

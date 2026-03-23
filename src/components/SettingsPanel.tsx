@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import { OCR_LANGUAGES } from '../services/ocrService';
-import { TRANSLATOR_ENGINES } from '../services/translationService';
+import { TRANSLATOR_ENGINES, type TranslatorEngine } from '../services/translationService';
 
 interface Settings {
   shortcutKey: string;
@@ -15,16 +15,21 @@ interface Settings {
   opacity: number;
   theme: 'light' | 'dark';
   ocrLanguage: string;
-  translatorEngine: string;
+  translatorEngine: TranslatorEngine;
   googleTranslateApiKey: string;
   baiduTranslateAppId: string;
   baiduTranslateAppKey: string;
   youdaoTranslateAppKey: string;
   youdaoTranslateAppSecret: string;
-  // LLM 配置
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiModel: string;
+  siliconflowApiKey: string;
+  siliconflowBaseUrl: string;
+  siliconflowModel: string;
+  openaiCompatibleApiKey: string;
+  openaiCompatibleBaseUrl: string;
+  openaiCompatibleModel: string;
   claudeApiKey: string;
   claudeBaseUrl: string;
   claudeModel: string;
@@ -32,115 +37,104 @@ interface Settings {
   geminiModel: string;
 }
 
+const createDefaultSettings = (): Settings => ({
+  shortcutKey: 'Alt+S',
+  sourceLanguage: 'auto',
+  targetLanguage: 'zh-Hans',
+  translatorApiKey: '',
+  translatorRegion: 'global',
+  translatorEndpoint: '',
+  autoCopy: true,
+  fontSize: 14,
+  opacity: 0.9,
+  theme: 'light',
+  ocrLanguage: 'chi_sim+eng',
+  translatorEngine: 'microsoft',
+  googleTranslateApiKey: '',
+  baiduTranslateAppId: '',
+  baiduTranslateAppKey: '',
+  youdaoTranslateAppKey: '',
+  youdaoTranslateAppSecret: '',
+  openaiApiKey: '',
+  openaiBaseUrl: '',
+  openaiModel: 'gpt-4o-mini',
+  siliconflowApiKey: '',
+  siliconflowBaseUrl: 'https://api.siliconflow.cn/v1',
+  siliconflowModel: 'Qwen/Qwen2.5-7B-Instruct',
+  openaiCompatibleApiKey: '',
+  openaiCompatibleBaseUrl: '',
+  openaiCompatibleModel: '',
+  claudeApiKey: '',
+  claudeBaseUrl: '',
+  claudeModel: 'claude-3-haiku-20240307',
+  geminiApiKey: '',
+  geminiModel: 'gemini-1.5-flash',
+});
+
+const normalizeSettings = (value: unknown): Settings => {
+  if (!value || typeof value !== 'object') {
+    return createDefaultSettings();
+  }
+
+  return {
+    ...createDefaultSettings(),
+    ...(value as Partial<Settings>),
+  };
+};
+
 const SettingsPanel: React.FC = () => {
   const { tNested } = useI18n();
-
-  // 仅在需要时才定义，如果不需要就移除
-  const [settings, setSettings] = useState<Settings>({
-    shortcutKey: 'Alt+S',
-    sourceLanguage: 'auto',
-    targetLanguage: 'zh-Hans',
-    translatorApiKey: '',
-    translatorRegion: 'global',
-    translatorEndpoint: '',
-    autoCopy: true,
-    fontSize: 14,
-    opacity: 0.9,
-    theme: 'light',
-    ocrLanguage: 'chi_sim+eng',
-    translatorEngine: 'microsoft',
-    googleTranslateApiKey: '',
-    baiduTranslateAppId: '',
-    baiduTranslateAppKey: '',
-    youdaoTranslateAppKey: '',
-    youdaoTranslateAppSecret: '',
-    // LLM 配置
-    openaiApiKey: '',
-    openaiBaseUrl: '',
-    openaiModel: 'gpt-4o-mini',
-    claudeApiKey: '',
-    claudeBaseUrl: '',
-    claudeModel: 'claude-3-haiku-20240307',
-    geminiApiKey: '',
-    geminiModel: 'gemini-1.5-flash',
-  });
+  const [settings, setSettings] = useState<Settings>(createDefaultSettings());
   const [saved, setSaved] = useState(false);
 
-  // 加载保存的设置
   useEffect(() => {
     const savedSettings = localStorage.getItem('screenshotTranslatorSettings');
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setSettings(parsed);
-      } catch (error) {
-        console.error('解析设置失败:', error);
-      }
+    if (!savedSettings) return;
+
+    try {
+      setSettings(normalizeSettings(JSON.parse(savedSettings)));
+    } catch (error) {
+      console.error('Failed to parse settings:', error);
     }
   }, []);
 
-  const handleChange = (field: keyof Settings, value: any) => {
+  const handleChange = <K extends keyof Settings>(field: K, value: Settings[K]) => {
     setSettings(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
 
-    // 重置保存状态
     if (saved) {
       setSaved(false);
     }
   };
 
   const handleSave = () => {
-    // 保存设置到本地存储
     localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(settings));
-
-    // 通知主进程更新快捷键
     window.electronAPI?.updateShortcut?.(settings.shortcutKey);
-
-    // 通知用户保存成功
     setSaved(true);
-
-    // 一段时间后隐藏成功提示
-    setTimeout(() => {
-      setSaved(false);
-    }, 3000);
-
-    console.log('保存设置:', settings);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   const handleReset = () => {
-    const defaultSettings: Settings = {
-      shortcutKey: 'Alt+S',
-      sourceLanguage: 'auto',
-      targetLanguage: 'zh-Hans',
-      translatorApiKey: '',
-      translatorRegion: 'global',
-      translatorEndpoint: '',
-      autoCopy: true,
-      fontSize: 14,
-      opacity: 0.9,
-      theme: 'light',
-      ocrLanguage: 'chi_sim+eng',
-      translatorEngine: 'microsoft',
-      googleTranslateApiKey: '',
-      baiduTranslateAppId: '',
-      baiduTranslateAppKey: '',
-      youdaoTranslateAppKey: '',
-      youdaoTranslateAppSecret: '',
-      // LLM 配置
-      openaiApiKey: '',
-      openaiBaseUrl: '',
-      openaiModel: 'gpt-4o-mini',
-      claudeApiKey: '',
-      claudeBaseUrl: '',
-      claudeModel: 'claude-3-haiku-20240307',
-      geminiApiKey: '',
-      geminiModel: 'gemini-1.5-flash',
-    };
-
-    setSettings(defaultSettings);
+    setSettings(createDefaultSettings());
     localStorage.removeItem('screenshotTranslatorSettings');
+  };
+
+  const getEngineLabel = (code: TranslatorEngine): string => {
+    const labelKeys: Record<TranslatorEngine, string> = {
+      microsoft: 'settings.translation.engines.microsoft',
+      google: 'settings.translation.engines.google',
+      baidu: 'settings.translation.engines.baidu',
+      youdao: 'settings.translation.engines.youdao',
+      openai: 'settings.translation.engines.openai',
+      siliconflow: 'settings.translation.engines.siliconflow',
+      'openai-compatible': 'settings.translation.engines.openaiCompatible',
+      claude: 'settings.translation.engines.claude',
+      gemini: 'settings.translation.engines.gemini',
+    };
+    const key = labelKeys[code];
+    return key ? tNested(key) : code;
   };
 
   return (
@@ -171,24 +165,24 @@ const SettingsPanel: React.FC = () => {
         <h3>{tNested('settings.translation.title')}</h3>
 
         <div className="setting-item">
-          <label htmlFor="translatorApiKey">{tNested('settings.translation.apiKeyLabel')}</label>
+          <label htmlFor="translatorApiKey">{tNested('settings.translation.providers.microsoftApiKeyLabel')}</label>
           <input
             type="password"
             id="translatorApiKey"
             value={settings.translatorApiKey}
             onChange={(e) => handleChange('translatorApiKey', e.target.value)}
-            placeholder={tNested('settings.translation.apiKeyPlaceholder')}
+            placeholder={tNested('settings.translation.providers.microsoftApiKeyPlaceholder')}
           />
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorRegion">{tNested('settings.translation.regionLabel')}</label>
+          <label htmlFor="translatorRegion">{tNested('settings.translation.providers.microsoftRegionLabel')}</label>
           <input
             type="text"
             id="translatorRegion"
             value={settings.translatorRegion}
             onChange={(e) => handleChange('translatorRegion', e.target.value)}
-            placeholder={tNested('settings.translation.regionPlaceholder')}
+            placeholder="global"
           />
         </div>
 
@@ -236,89 +230,85 @@ const SettingsPanel: React.FC = () => {
         </div>
 
         <div className="setting-item">
-          <label htmlFor="translatorEngine">翻译引擎</label>
+          <label htmlFor="translatorEngine">{tNested('settings.translation.engineLabel')}</label>
           <select
             id="translatorEngine"
             value={settings.translatorEngine}
-            onChange={(e) => handleChange('translatorEngine', e.target.value)}
+            onChange={(e) => handleChange('translatorEngine', e.target.value as TranslatorEngine)}
           >
             {TRANSLATOR_ENGINES.map(engine => (
-              <option key={engine.code} value={engine.code}>{engine.name}</option>
+              <option key={engine.code} value={engine.code}>{getEngineLabel(engine.code)}</option>
             ))}
           </select>
         </div>
 
-        {/* Google翻译API设置 */}
         {settings.translatorEngine === 'google' && (
           <div className="setting-item">
-            <label htmlFor="googleTranslateApiKey">Google翻译API密钥</label>
+            <label htmlFor="googleTranslateApiKey">{tNested('settings.translation.providers.googleApiKeyLabel')}</label>
             <input
               type="password"
               id="googleTranslateApiKey"
               value={settings.googleTranslateApiKey}
               onChange={(e) => handleChange('googleTranslateApiKey', e.target.value)}
-              placeholder="输入Google翻译API密钥"
+              placeholder="AIza..."
             />
           </div>
         )}
 
-        {/* 百度翻译API设置 */}
         {settings.translatorEngine === 'baidu' && (
           <>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppId">百度翻译App ID</label>
+              <label htmlFor="baiduTranslateAppId">{tNested('settings.translation.providers.baiduAppIdLabel')}</label>
               <input
                 type="text"
                 id="baiduTranslateAppId"
                 value={settings.baiduTranslateAppId}
                 onChange={(e) => handleChange('baiduTranslateAppId', e.target.value)}
-                placeholder="输入百度翻译App ID"
+                placeholder="App ID"
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="baiduTranslateAppKey">百度翻译App Key</label>
+              <label htmlFor="baiduTranslateAppKey">{tNested('settings.translation.providers.baiduAppKeyLabel')}</label>
               <input
                 type="password"
                 id="baiduTranslateAppKey"
                 value={settings.baiduTranslateAppKey}
                 onChange={(e) => handleChange('baiduTranslateAppKey', e.target.value)}
-                placeholder="输入百度翻译App Key"
+                placeholder="App Key"
               />
             </div>
           </>
         )}
 
-        {/* 有道翻译API设置 */}
         {settings.translatorEngine === 'youdao' && (
           <>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppKey">有道翻译App Key</label>
+              <label htmlFor="youdaoTranslateAppKey">{tNested('settings.translation.providers.youdaoAppKeyLabel')}</label>
               <input
                 type="text"
                 id="youdaoTranslateAppKey"
                 value={settings.youdaoTranslateAppKey}
                 onChange={(e) => handleChange('youdaoTranslateAppKey', e.target.value)}
-                placeholder="输入有道翻译App Key"
+                placeholder="App Key"
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="youdaoTranslateAppSecret">有道翻译App Secret</label>
+              <label htmlFor="youdaoTranslateAppSecret">{tNested('settings.translation.providers.youdaoAppSecretLabel')}</label>
               <input
                 type="password"
                 id="youdaoTranslateAppSecret"
                 value={settings.youdaoTranslateAppSecret}
                 onChange={(e) => handleChange('youdaoTranslateAppSecret', e.target.value)}
-                placeholder="输入有道翻译App Secret"
+                placeholder="App Secret"
               />
             </div>
           </>
         )}
 
-        {/* OpenAI 配置 */}
         {settings.translatorEngine === 'openai' && (
           <>
             <div className="setting-item">
-              <label htmlFor="openaiApiKey">OpenAI API 密钥</label>
+              <label htmlFor="openaiApiKey">OpenAI API Key</label>
               <input
                 type="password"
                 id="openaiApiKey"
@@ -328,7 +318,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiBaseUrl">API Base URL (可选)</label>
+              <label htmlFor="openaiBaseUrl">{tNested('settings.translation.baseUrlOptionalLabel')}</label>
               <input
                 type="text"
                 id="openaiBaseUrl"
@@ -338,7 +328,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="openaiModel">模型</label>
+              <label htmlFor="openaiModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="openaiModel"
@@ -350,11 +340,80 @@ const SettingsPanel: React.FC = () => {
           </>
         )}
 
-        {/* Claude 配置 */}
+        {settings.translatorEngine === 'siliconflow' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="siliconflowApiKey">SiliconFlow API Key</label>
+              <input
+                type="password"
+                id="siliconflowApiKey"
+                value={settings.siliconflowApiKey}
+                onChange={(e) => handleChange('siliconflowApiKey', e.target.value)}
+                placeholder="sk-..."
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="siliconflowBaseUrl">{tNested('settings.translation.baseUrlLabel')}</label>
+              <input
+                type="text"
+                id="siliconflowBaseUrl"
+                value={settings.siliconflowBaseUrl}
+                onChange={(e) => handleChange('siliconflowBaseUrl', e.target.value)}
+                placeholder="https://api.siliconflow.cn/v1"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="siliconflowModel">{tNested('settings.translation.modelLabel')}</label>
+              <input
+                type="text"
+                id="siliconflowModel"
+                value={settings.siliconflowModel}
+                onChange={(e) => handleChange('siliconflowModel', e.target.value)}
+                placeholder="Qwen/Qwen2.5-7B-Instruct"
+              />
+            </div>
+          </>
+        )}
+
+        {settings.translatorEngine === 'openai-compatible' && (
+          <>
+            <div className="setting-item">
+              <label htmlFor="openaiCompatibleApiKey">{tNested('settings.translation.apiKeyOptionalLabel')}</label>
+              <input
+                type="password"
+                id="openaiCompatibleApiKey"
+                value={settings.openaiCompatibleApiKey}
+                onChange={(e) => handleChange('openaiCompatibleApiKey', e.target.value)}
+                placeholder={tNested('settings.translation.openaiCompatibleApiKeyPlaceholder')}
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="openaiCompatibleBaseUrl">{tNested('settings.translation.baseUrlLabel')}</label>
+              <input
+                type="text"
+                id="openaiCompatibleBaseUrl"
+                value={settings.openaiCompatibleBaseUrl}
+                onChange={(e) => handleChange('openaiCompatibleBaseUrl', e.target.value)}
+                placeholder="https://your-openai-compatible-endpoint/v1"
+              />
+            </div>
+            <div className="setting-item">
+              <label htmlFor="openaiCompatibleModel">{tNested('settings.translation.modelNameLabel')}</label>
+              <input
+                type="text"
+                id="openaiCompatibleModel"
+                value={settings.openaiCompatibleModel}
+                onChange={(e) => handleChange('openaiCompatibleModel', e.target.value)}
+                placeholder="qwen2.5-7b-instruct"
+              />
+            </div>
+          </>
+        )}
+
         {settings.translatorEngine === 'claude' && (
           <>
             <div className="setting-item">
-              <label htmlFor="claudeApiKey">Claude API 密钥</label>
+              <label htmlFor="claudeApiKey">Claude API Key</label>
               <input
                 type="password"
                 id="claudeApiKey"
@@ -364,7 +423,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeBaseUrl">API Base URL (可选)</label>
+              <label htmlFor="claudeBaseUrl">{tNested('settings.translation.baseUrlOptionalLabel')}</label>
               <input
                 type="text"
                 id="claudeBaseUrl"
@@ -374,7 +433,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="claudeModel">模型</label>
+              <label htmlFor="claudeModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="claudeModel"
@@ -386,11 +445,10 @@ const SettingsPanel: React.FC = () => {
           </>
         )}
 
-        {/* Gemini 配置 */}
         {settings.translatorEngine === 'gemini' && (
           <>
             <div className="setting-item">
-              <label htmlFor="geminiApiKey">Gemini API 密钥</label>
+              <label htmlFor="geminiApiKey">Gemini API Key</label>
               <input
                 type="password"
                 id="geminiApiKey"
@@ -400,7 +458,7 @@ const SettingsPanel: React.FC = () => {
               />
             </div>
             <div className="setting-item">
-              <label htmlFor="geminiModel">模型</label>
+              <label htmlFor="geminiModel">{tNested('settings.translation.modelLabel')}</label>
               <input
                 type="text"
                 id="geminiModel"
@@ -414,10 +472,9 @@ const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="setting-group">
-        <h3>OCR设置</h3>
-
+        <h3>{tNested('settings.ocrSection.title')}</h3>
         <div className="setting-item">
-          <label htmlFor="ocrLanguage">OCR语言模型</label>
+          <label htmlFor="ocrLanguage">{tNested('settings.ocrSection.languageLabel')}</label>
           <select
             id="ocrLanguage"
             value={settings.ocrLanguage}
@@ -440,8 +497,9 @@ const SettingsPanel: React.FC = () => {
             id="fontSize"
             min="10"
             max="24"
+            step="1"
             value={settings.fontSize}
-            onChange={(e) => handleChange('fontSize', parseInt(e.target.value))}
+            onChange={(e) => handleChange('fontSize', parseInt(e.target.value, 10))}
           />
           <span>{settings.fontSize}px</span>
         </div>
@@ -467,8 +525,8 @@ const SettingsPanel: React.FC = () => {
             value={settings.theme}
             onChange={(e) => handleChange('theme', e.target.value as 'light' | 'dark')}
           >
-            <option value="light">{tNested('settings.languages.lightTheme')}</option>
-            <option value="dark">{tNested('settings.languages.darkTheme')}</option>
+            <option value="light">{tNested('settings.interface.lightTheme')}</option>
+            <option value="dark">{tNested('settings.interface.darkTheme')}</option>
           </select>
         </div>
 

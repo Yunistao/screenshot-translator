@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStore';
 import { Annotation, SelectionArea } from '../types/electron';
 import './AnnotationEditor.css';
@@ -9,7 +9,10 @@ interface AnnotationEditorProps {
   onFinish: () => void;
 }
 
-type ToolType = 'rectangle' | 'arrow' | 'brush' | 'text';
+type ToolType = 'rectangle' | 'arrow' | 'brush';
+type Point = { x: number; y: number };
+
+const COLORS = ['#ff0000', '#ff9800', '#ffff00', '#00ff00', '#00ffff', '#0080ff', '#8000ff', '#ff00ff', '#000000', '#ffffff'];
 
 const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   selectionArea,
@@ -17,6 +20,9 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   onFinish,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+  const [backgroundVersion, setBackgroundVersion] = useState(0);
+
   const {
     annotations,
     addAnnotation,
@@ -27,89 +33,48 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
 
   const [currentTool, setCurrentTool] = useState<ToolType>('rectangle');
   const [isDrawing, setIsDrawing] = useState(false);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
-  const [currentPoints, setCurrentPoints] = useState<{ x: number; y: number }[]>([]);
-  const [textInput, setTextInput] = useState('');
-  const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(null);
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
+  const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [undoStack, setUndoStack] = useState<Annotation[][]>([]);
 
-  // 绘制画布
-  const drawCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
-    // 设置画布大小为选择区域大小
-    canvas.width = selectionArea.width;
-    canvas.height = selectionArea.height;
-
-    // 绘制截图背景
+  useEffect(() => {
     const img = new Image();
+    let canceled = false;
+
     img.onload = () => {
-      ctx.drawImage(
-        img,
-        selectionArea.x, selectionArea.y, selectionArea.width, selectionArea.height,
-        0, 0, selectionArea.width, selectionArea.height
-      );
+      if (canceled) {
+        return;
+      }
 
-      // 绘制所有标注
-      annotations.forEach(annotation => {
-        drawAnnotation(ctx, annotation, 0, 0);
-      });
+      backgroundImageRef.current = img;
+      setBackgroundVersion((value) => value + 1);
     };
+
     img.src = screenshotImage;
-  }, [screenshotImage, selectionArea, annotations]);
 
-  // 绘制单个标注
-  const drawAnnotation = (ctx: CanvasRenderingContext2D, annotation: Annotation, offsetX: number, offsetY: number) => {
-    ctx.strokeStyle = annotation.color;
-    ctx.fillStyle = annotation.color;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    return () => {
+      canceled = true;
+    };
+  }, [screenshotImage]);
 
-    switch (annotation.type) {
-      case 'rectangle':
-        if (annotation.startX !== undefined && annotation.startY !== undefined &&
-            annotation.endX !== undefined && annotation.endY !== undefined) {
-          const x = Math.min(annotation.startX, annotation.endX) - offsetX;
-          const y = Math.min(annotation.startY, annotation.endY) - offsetY;
-          const w = Math.abs(annotation.endX - annotation.startX);
-          const h = Math.abs(annotation.endY - annotation.startY);
-          ctx.strokeRect(x, y, w, h);
-        }
-        break;
-      case 'arrow':
-        if (annotation.startX !== undefined && annotation.startY !== undefined &&
-            annotation.endX !== undefined && annotation.endY !== undefined) {
-          const fromX = annotation.startX - offsetX;
-          const fromY = annotation.startY - offsetY;
-          const toX = annotation.endX - offsetX;
-          const toY = annotation.endY - offsetY;
-          drawArrow(ctx, fromX, fromY, toX, toY);
-        }
-        break;
-      case 'brush':
-        if (annotation.points && annotation.points.length > 1) {
-          ctx.beginPath();
-          ctx.moveTo(annotation.points[0].x - offsetX, annotation.points[0].y - offsetY);
-          annotation.points.forEach(p => {
-            ctx.lineTo(p.x - offsetX, p.y - offsetY);
-          });
-          ctx.stroke();
-        }
-        break;
-      case 'text':
-        if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
-          ctx.font = '16px Arial';
-          ctx.fillText(annotation.text, annotation.x - offsetX, annotation.y - offsetY);
-        }
-        break;
+  const getCanvasPosition = useCallback((clientX: number, clientY: number): Point | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return null;
     }
-  };
 
-  // 绘制箭头
-  const drawArrow = (ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  }, []);
+
+  const drawArrow = useCallback((ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number) => {
     const headLength = 15;
     const angle = Math.atan2(toY - fromY, toX - fromX);
 
@@ -122,68 +87,180 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     ctx.moveTo(toX, toY);
     ctx.lineTo(
       toX - headLength * Math.cos(angle - Math.PI / 6),
-      toY - headLength * Math.sin(angle - Math.PI / 6)
+      toY - headLength * Math.sin(angle - Math.PI / 6),
     );
     ctx.lineTo(
       toX - headLength * Math.cos(angle + Math.PI / 6),
-      toY - headLength * Math.sin(angle + Math.PI / 6)
+      toY - headLength * Math.sin(angle + Math.PI / 6),
     );
     ctx.closePath();
     ctx.fill();
-  };
+  }, []);
 
-  // 重新绘制
-  useEffect(() => {
-    drawCanvas();
-  }, [drawCanvas]);
+  const drawAnnotation = useCallback((ctx: CanvasRenderingContext2D, annotation: Annotation, offsetX: number, offsetY: number) => {
+    ctx.strokeStyle = annotation.color;
+    ctx.fillStyle = annotation.color;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
-  // 获取鼠标在画布上的位置
-  const getCanvasPosition = (e: React.MouseEvent): { x: number; y: number } => {
+    switch (annotation.type) {
+      case 'rectangle': {
+        if (annotation.startX !== undefined && annotation.startY !== undefined && annotation.endX !== undefined && annotation.endY !== undefined) {
+          const x = Math.min(annotation.startX, annotation.endX) - offsetX;
+          const y = Math.min(annotation.startY, annotation.endY) - offsetY;
+          const w = Math.abs(annotation.endX - annotation.startX);
+          const h = Math.abs(annotation.endY - annotation.startY);
+          ctx.strokeRect(x, y, w, h);
+        }
+        break;
+      }
+      case 'arrow': {
+        if (annotation.startX !== undefined && annotation.startY !== undefined && annotation.endX !== undefined && annotation.endY !== undefined) {
+          const fromX = annotation.startX - offsetX;
+          const fromY = annotation.startY - offsetY;
+          const toX = annotation.endX - offsetX;
+          const toY = annotation.endY - offsetY;
+          drawArrow(ctx, fromX, fromY, toX, toY);
+        }
+        break;
+      }
+      case 'brush': {
+        if (annotation.points && annotation.points.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(annotation.points[0].x - offsetX, annotation.points[0].y - offsetY);
+          annotation.points.forEach((point) => {
+            ctx.lineTo(point.x - offsetX, point.y - offsetY);
+          });
+          ctx.stroke();
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }, [drawArrow]);
+
+  const drawLivePreview = useCallback((ctx: CanvasRenderingContext2D) => {
+    ctx.save();
+    ctx.strokeStyle = annotationColor;
+    ctx.fillStyle = annotationColor;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (currentTool === 'brush' && currentPoints.length > 1) {
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+      currentPoints.slice(1).forEach((point) => {
+        ctx.lineTo(point.x, point.y);
+      });
+      ctx.stroke();
+    } else if ((currentTool === 'rectangle' || currentTool === 'arrow') && isDrawing && startPoint && currentPoints.length > 0) {
+      const endPoint = currentPoints[currentPoints.length - 1];
+      ctx.setLineDash([6, 4]);
+
+      if (currentTool === 'rectangle') {
+        const x = Math.min(startPoint.x, endPoint.x);
+        const y = Math.min(startPoint.y, endPoint.y);
+        const w = Math.abs(endPoint.x - startPoint.x);
+        const h = Math.abs(endPoint.y - startPoint.y);
+        ctx.strokeRect(x, y, w, h);
+      } else {
+        drawArrow(ctx, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+      }
+    }
+
+    ctx.restore();
+  }, [annotationColor, currentPoints, currentTool, drawArrow, isDrawing, startPoint]);
+
+  const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-  };
+    const ctx = canvas?.getContext('2d');
+    const image = backgroundImageRef.current;
 
-  // 鼠标按下
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (currentTool === 'text') {
-      const pos = getCanvasPosition(e);
-      setTextPosition(pos);
+    if (!canvas || !ctx || !image) {
+      return;
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(selectionArea.width * dpr));
+    const height = Math.max(1, Math.round(selectionArea.height * dpr));
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = `${selectionArea.width}px`;
+    canvas.style.height = `${selectionArea.height}px`;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, selectionArea.width, selectionArea.height);
+    ctx.drawImage(
+      image,
+      selectionArea.x,
+      selectionArea.y,
+      selectionArea.width,
+      selectionArea.height,
+      0,
+      0,
+      selectionArea.width,
+      selectionArea.height,
+    );
+
+    annotations.forEach((annotation) => {
+      drawAnnotation(ctx, annotation, selectionArea.x, selectionArea.y);
+    });
+
+    drawLivePreview(ctx);
+  }, [annotations, drawAnnotation, drawLivePreview, backgroundVersion, selectionArea]);
+
+  useEffect(() => {
+    renderCanvas();
+  }, [renderCanvas]);
+
+  const beginDrawing = useCallback((clientX: number, clientY: number) => {
+    const point = getCanvasPosition(clientX, clientY);
+    if (!point) {
       return;
     }
 
     setIsDrawing(true);
-    const pos = getCanvasPosition(e);
-    setStartPoint(pos);
-    setCurrentPoints([pos]);
-  };
+    setStartPoint(point);
+    setCurrentPoints([point]);
+  }, [getCanvasPosition]);
 
-  // 鼠标移动
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing || !startPoint) return;
+  const updateDrawing = useCallback((clientX: number, clientY: number) => {
+    if (!isDrawing || !startPoint) {
+      return;
+    }
 
-    const pos = getCanvasPosition(e);
+    const point = getCanvasPosition(clientX, clientY);
+    if (!point) {
+      return;
+    }
 
     if (currentTool === 'brush') {
-      setCurrentPoints(prev => [...prev, pos]);
+      setCurrentPoints((previous) => [...previous, point]);
     } else {
-      setCurrentPoints([startPoint, pos]);
+      setCurrentPoints([startPoint, point]);
     }
-  };
+  }, [currentTool, getCanvasPosition, isDrawing, startPoint]);
 
-  // 鼠标松开
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (!isDrawing || !startPoint) return;
+  const finishDrawing = useCallback((clientX?: number, clientY?: number) => {
+    if (!isDrawing || !startPoint) {
+      return;
+    }
 
-    const pos = getCanvasPosition(e);
+    const endPoint = typeof clientX === 'number' && typeof clientY === 'number'
+      ? getCanvasPosition(clientX, clientY)
+      : currentPoints[currentPoints.length - 1] ?? startPoint;
+
+    if (!endPoint) {
+      return;
+    }
+
     const id = Date.now().toString();
-
-    // 保存当前标注到撤销栈
-    setUndoStack(prev => [...prev, [...annotations]]);
+    setUndoStack((previous) => [...previous, [...annotations]]);
 
     let newAnnotation: Annotation | null = null;
 
@@ -195,8 +272,8 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           color: annotationColor,
           startX: startPoint.x + selectionArea.x,
           startY: startPoint.y + selectionArea.y,
-          endX: pos.x + selectionArea.x,
-          endY: pos.y + selectionArea.y,
+          endX: endPoint.x + selectionArea.x,
+          endY: endPoint.y + selectionArea.y,
         };
         break;
       case 'arrow':
@@ -206,22 +283,30 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           color: annotationColor,
           startX: startPoint.x + selectionArea.x,
           startY: startPoint.y + selectionArea.y,
-          endX: pos.x + selectionArea.x,
-          endY: pos.y + selectionArea.y,
+          endX: endPoint.x + selectionArea.x,
+          endY: endPoint.y + selectionArea.y,
         };
         break;
-      case 'brush':
-        if (currentPoints.length > 1) {
+      case 'brush': {
+        const brushPoints = [...currentPoints];
+        if (brushPoints.length === 0 || brushPoints[brushPoints.length - 1].x !== endPoint.x || brushPoints[brushPoints.length - 1].y !== endPoint.y) {
+          brushPoints.push(endPoint);
+        }
+
+        if (brushPoints.length > 1) {
           newAnnotation = {
             id,
             type: 'brush',
             color: annotationColor,
-            points: currentPoints.map(p => ({
-              x: p.x + selectionArea.x,
-              y: p.y + selectionArea.y,
+            points: brushPoints.map((point) => ({
+              x: point.x + selectionArea.x,
+              y: point.y + selectionArea.y,
             })),
           };
         }
+        break;
+      }
+      default:
         break;
     }
 
@@ -232,86 +317,79 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     setIsDrawing(false);
     setStartPoint(null);
     setCurrentPoints([]);
-  };
+  }, [addAnnotation, annotationColor, annotations, currentPoints, currentTool, getCanvasPosition, isDrawing, selectionArea, startPoint]);
 
-  // 处理文本输入
-  const handleTextSubmit = () => {
-    if (!textPosition || !textInput.trim()) {
-      setTextPosition(null);
-      setTextInput('');
+  useEffect(() => {
+    if (!isDrawing) {
       return;
     }
 
-    setUndoStack(prev => [...prev, [...annotations]]);
+    const handleMouseMove = (event: MouseEvent) => {
+      updateDrawing(event.clientX, event.clientY);
+    };
 
-    addAnnotation({
-      id: Date.now().toString(),
-      type: 'text',
-      color: annotationColor,
-      text: textInput,
-      x: textPosition.x + selectionArea.x,
-      y: textPosition.y + selectionArea.y,
-    });
+    const handleMouseUp = (event: MouseEvent) => {
+      finishDrawing(event.clientX, event.clientY);
+    };
 
-    setTextPosition(null);
-    setTextInput('');
-  };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
 
-  // 撤销
-  const handleUndo = () => {
-    if (undoStack.length === 0) return;
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [finishDrawing, isDrawing, updateDrawing]);
+
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    beginDrawing(event.clientX, event.clientY);
+  }, [beginDrawing]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    updateDrawing(event.clientX, event.clientY);
+  }, [updateDrawing]);
+
+  const handleMouseUp = useCallback((event: React.MouseEvent) => {
+    finishDrawing(event.clientX, event.clientY);
+  }, [finishDrawing]);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) {
+      return;
+    }
+
     const previousState = undoStack[undoStack.length - 1];
-    setUndoStack(prev => prev.slice(0, -1));
+    setUndoStack((previous) => previous.slice(0, -1));
     clearAnnotations();
-    previousState.forEach(a => addAnnotation(a));
-  };
+    previousState.forEach((annotation) => addAnnotation(annotation));
+  }, [addAnnotation, clearAnnotations, undoStack]);
 
-  // 清除所有
-  const handleClear = () => {
-    setUndoStack(prev => [...prev, [...annotations]]);
+  const handleClear = useCallback(() => {
+    setUndoStack((previous) => [...previous, [...annotations]]);
     clearAnnotations();
-  };
-
-  // 颜色选项
-  const colors = ['#ff0000', '#ff9800', '#ffff00', '#00ff00', '#00ffff', '#0080ff', '#8000ff', '#ff00ff', '#000000', '#ffffff'];
+  }, [annotations, clearAnnotations]);
 
   return (
     <div className="annotation-editor">
-      {/* 工具面板 */}
       <div className="tool-panel">
         <div className="tool-buttons">
-          <button
-            className={currentTool === 'rectangle' ? 'active' : ''}
-            onClick={() => setCurrentTool('rectangle')}
-            title="矩形"
-          >
-            ▢
+          <button className={currentTool === 'rectangle' ? 'active' : ''} onClick={() => setCurrentTool('rectangle')} title="矩形">
+            ▭
           </button>
-          <button
-            className={currentTool === 'arrow' ? 'active' : ''}
-            onClick={() => setCurrentTool('arrow')}
-            title="箭头"
-          >
+          <button className={currentTool === 'arrow' ? 'active' : ''} onClick={() => setCurrentTool('arrow')} title="箭头">
             ➜
           </button>
-          <button
-            className={currentTool === 'brush' ? 'active' : ''}
-            onClick={() => setCurrentTool('brush')}
-            title="画笔"
-          >
+          <button className={currentTool === 'brush' ? 'active' : ''} onClick={() => setCurrentTool('brush')} title="画笔">
             ✎
-          </button>
-          <button
-            className={currentTool === 'text' ? 'active' : ''}
-            onClick={() => setCurrentTool('text')}
-            title="文字"
-          >
-            T
           </button>
         </div>
 
         <div className="color-picker">
-          {colors.map(color => (
+          {COLORS.map((color) => (
             <button
               key={color}
               className={`color-btn ${annotationColor === color ? 'active' : ''}`}
@@ -323,10 +401,10 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
 
         <div className="action-buttons">
           <button onClick={handleUndo} disabled={undoStack.length === 0} title="撤销">
-            ↩
+            ↶
           </button>
           <button onClick={handleClear} disabled={annotations.length === 0} title="清除全部">
-            🗑
+            ⌫
           </button>
           <button onClick={onFinish} className="btn-done" title="完成">
             完成
@@ -334,7 +412,6 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
         </div>
       </div>
 
-      {/* 画布区域 */}
       <div
         className="canvas-container"
         style={{
@@ -350,34 +427,8 @@ const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          style={{
-            cursor: currentTool === 'text' ? 'text' : 'crosshair',
-          }}
+          style={{ cursor: 'crosshair' }}
         />
-
-        {/* 文本输入框 */}
-        {textPosition && (
-          <input
-            type="text"
-            className="text-input"
-            style={{
-              left: textPosition.x,
-              top: textPosition.y - 16,
-              color: annotationColor,
-            }}
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleTextSubmit();
-              if (e.key === 'Escape') {
-                setTextPosition(null);
-                setTextInput('');
-              }
-            }}
-            onBlur={handleTextSubmit}
-            autoFocus
-          />
-        )}
       </div>
     </div>
   );

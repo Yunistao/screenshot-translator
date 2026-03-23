@@ -1,10 +1,17 @@
-import SparkMD5 from 'spark-md5';
-import { translateWithLLM } from './llmTranslation';
+﻿import SparkMD5 from 'spark-md5';
+import { translateWithLLM as translateWithLLMCore } from './llmTranslation';
 
-// 翻译引擎类型
-export type TranslatorEngine = 'microsoft' | 'google' | 'baidu' | 'youdao' | 'openai' | 'claude' | 'gemini';
+export type TranslatorEngine =
+  | 'microsoft'
+  | 'google'
+  | 'baidu'
+  | 'youdao'
+  | 'openai'
+  | 'siliconflow'
+  | 'openai-compatible'
+  | 'claude'
+  | 'gemini';
 
-// 设置接口定义
 interface TranslatorSettings {
   translatorApiKey?: string;
   translatorRegion?: string;
@@ -14,280 +21,513 @@ interface TranslatorSettings {
   baiduTranslateAppKey?: string;
   youdaoTranslateAppKey?: string;
   youdaoTranslateAppSecret?: string;
+  openaiApiKey?: string;
+  openaiBaseUrl?: string;
+  openaiModel?: string;
+  siliconflowApiKey?: string;
+  siliconflowBaseUrl?: string;
+  siliconflowModel?: string;
+  openaiCompatibleApiKey?: string;
+  openaiCompatibleBaseUrl?: string;
+  openaiCompatibleModel?: string;
+  claudeApiKey?: string;
+  claudeBaseUrl?: string;
+  claudeModel?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
 }
 
-// 从统一设置对象读取设置
 const getSettings = (): TranslatorSettings | null => {
   const stored = localStorage.getItem('screenshotTranslatorSettings');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
+  if (!stored) return null;
+
+  try {
+    return JSON.parse(stored) as TranslatorSettings;
+  } catch {
+    return null;
   }
-  return null;
 };
 
-// 生成MD5签名的函数（使用 spark-md5 库，因为 Web Crypto API 不支持 MD5）
-const generateMD5 = (str: string): string => {
-  return SparkMD5.hash(str);
-};
+const generateMD5 = (value: string): string => SparkMD5.hash(value);
 
-// 支持的翻译引擎
 export const TRANSLATOR_ENGINES = [
-  { code: 'microsoft', name: '微软翻译' },
-  { code: 'google', name: 'Google翻译' },
-  { code: 'baidu', name: '百度翻译' },
-  { code: 'youdao', name: '有道翻译' },
+  { code: 'microsoft', name: 'Microsoft Translator' },
+  { code: 'google', name: 'Google Translate' },
+  { code: 'baidu', name: 'Baidu Translate' },
+  { code: 'youdao', name: 'Youdao Translate' },
   { code: 'openai', name: 'OpenAI (GPT)' },
+  { code: 'siliconflow', name: 'SiliconFlow' },
+  { code: 'openai-compatible', name: 'OpenAI Compatible' },
   { code: 'claude', name: 'Claude' },
   { code: 'gemini', name: 'Gemini' },
-];
+] as const;
 
-// 微软翻译API实现
-export const translateWithMicrosoft = async (text: string, fromLang: string = 'auto', toLang: string = 'zh-Hans'): Promise<string> => {
+export const translateWithMicrosoft = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
   try {
     const settings = getSettings();
     const apiKey = process.env.TRANSLATOR_API_KEY || settings?.translatorApiKey;
-    const region = process.env.TRANSLATOR_REGION || settings?.translatorRegion;
+    const region = process.env.TRANSLATOR_REGION || settings?.translatorRegion || 'global';
     const endpoint = process.env.TRANSLATOR_ENDPOINT || settings?.translatorEndpoint;
 
     if (!apiKey) {
-      console.warn('未配置微软翻译API密钥');
-      return `[请配置微软翻译API密钥] ${text}`;
+      console.warn('Microsoft Translator API key is not configured');
+      return `[Please configure Microsoft Translator API key] ${text}`;
     }
 
     const fullEndpoint = endpoint || `https://${region}.api.cognitive.microsofttranslator.com/`;
-    const url = `${fullEndpoint}/translate?api-version=3.0&from=${fromLang}&to=${toLang}`;
-
-    const requestBody = [{
-      Text: text
-    }];
+    const url = `${fullEndpoint.replace(/\/$/, '')}/translate?api-version=3.0&from=${fromLang}&to=${toLang}`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': apiKey,
+        'Ocp-Apim-Subscription-Region': region,
         'Content-Type': 'application/json',
-        'Ocp-Apim-Subscription-Region': region || 'global'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify([{ Text: text }]),
     });
 
     if (!response.ok) {
-      console.error(`微软翻译API错误: ${response.status} ${response.statusText}`);
-      throw new Error(`翻译API调用失败: ${response.status} ${response.statusText}`);
+      throw new Error(`Translation API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-
-    if (!data || !data[0]?.translations || data[0].translations.length === 0) {
-      throw new Error('翻译服务返回空结果');
+    const translated = data?.[0]?.translations?.[0]?.text;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
     }
 
-    return data[0].translations[0].text;
+    return translated;
   } catch (error) {
-    console.error('微软翻译失败:', error);
-    return `[微软翻译失败: ${(error as Error).message}] ${text}`;
+    console.error('Microsoft Translator failed:', error);
+    return `[Microsoft Translator failed: ${(error as Error).message}] ${text}`;
   }
 };
 
-// Google翻译API实现
-export const translateWithGoogle = async (text: string, fromLang: string = 'auto', toLang: string = 'zh-Hans'): Promise<string> => {
+export const translateWithGoogle = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
   try {
-    const settings = getSettings();
-    const apiKey = settings?.googleTranslateApiKey;
-
+    const apiKey = getSettings()?.googleTranslateApiKey;
     if (!apiKey) {
-      console.warn('未配置Google翻译API密钥');
-      return `[请配置Google翻译API密钥] ${text}`;
+      console.warn('Google Translate API key is not configured');
+      return `[Please configure Google Translate API key] ${text}`;
     }
 
-    const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}&q=${encodeURIComponent(text)}&source=${fromLang}&target=${toLang}`;
-
+    const url = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(text)}&source=${encodeURIComponent(fromLang)}&target=${encodeURIComponent(toLang)}`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.error(`Google翻译API错误: ${response.status} ${response.statusText}`);
-      throw new Error(`翻译API调用失败: ${response.status} ${response.statusText}`);
+      throw new Error(`Translation API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-
-    if (!data?.data?.translations || data.data.translations.length === 0) {
-      throw new Error('翻译服务返回空结果');
+    const translated = data?.data?.translations?.[0]?.translatedText;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
     }
 
-    return data.data.translations[0].translatedText;
+    return translated;
   } catch (error) {
-    console.error('Google翻译失败:', error);
-    return `[Google翻译失败: ${(error as Error).message}] ${text}`;
+    console.error('Google Translate failed:', error);
+    return `[Google Translate failed: ${(error as Error).message}] ${text}`;
   }
 };
 
-// 百度翻译API实现
-export const translateWithBaidu = async (text: string, fromLang: string = 'auto', toLang: string = 'zh'): Promise<string> => {
+export const translateWithBaidu = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh'
+): Promise<string> => {
   try {
     const settings = getSettings();
     const appId = settings?.baiduTranslateAppId;
     const appKey = settings?.baiduTranslateAppKey;
 
     if (!appId || !appKey) {
-      console.warn('未配置百度翻译API密钥');
-      return `[请配置百度翻译API密钥] ${text}`;
+      console.warn('Baidu Translate credentials are not configured');
+      return `[Please configure Baidu Translate credentials] ${text}`;
     }
 
-    // 百度翻译API需要签名
     const salt = Date.now().toString();
-    // 长文本处理：截取前字符用于签名（百度API要求）
-    const input = text.length > 200
-      ? text.substring(0, 10) + text.length + text.substring(text.length - 10)
-      : text;
+    const input = text.length > 200 ? `${text.slice(0, 10)}${text.length}${text.slice(-10)}` : text;
     const sign = generateMD5(appId + input + salt + appKey);
 
-    // 使用 POST 请求（官方推荐）
-    const url = 'https://fanyi-api.baidu.com/api/trans/vip/translate';
     const params = new URLSearchParams({
       q: text,
       from: fromLang,
       to: toLang,
       appid: appId,
-      salt: salt,
-      sign: sign
+      salt,
+      sign,
     });
 
-    const response = await fetch(url, {
+    const response = await fetch('https://fanyi-api.baidu.com/api/trans/vip/translate', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: params.toString()
+      body: params.toString(),
     });
 
     if (!response.ok) {
-      console.error(`百度翻译API错误: ${response.status} ${response.statusText}`);
-      throw new Error(`翻译API调用失败: ${response.status} ${response.statusText}`);
+      throw new Error(`Translation API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-
-    // 检查错误码
-    if (data.error_code) {
-      const errorMessages: Record<string, string> = {
-        '52000': '成功',
-        '52001': '请求超时',
-        '52002': '系统错误',
-        '52003': '未授权用户',
-        '54000': '必填参数为空',
-        '54001': '签名错误',
-        '54003': '访问频率受限',
-        '54004': '账户余额不足',
-        '54005': '长query请求频繁',
-        '58000': '客户端IP非法',
-        '58001': '译文语言方向不支持',
-        '58002': '服务当前已关闭',
-        '90107': '认证未通过'
-      };
-      const errorMsg = errorMessages[data.error_code] || `错误码: ${data.error_code}`;
-      throw new Error(`百度翻译错误: ${errorMsg}`);
+    if (data?.error_code) {
+      throw new Error(`Baidu error ${data.error_code}`);
     }
 
-    if (!data?.trans_result || data.trans_result.length === 0) {
-      throw new Error('翻译服务返回空结果');
+    const translated = data?.trans_result?.[0]?.dst;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
     }
 
-    return data.trans_result[0].dst;
+    return translated;
   } catch (error) {
-    console.error('百度翻译失败:', error);
-    return `[百度翻译失败: ${(error as Error).message}] ${text}`;
+    console.error('Baidu Translate failed:', error);
+    return `[Baidu Translate failed: ${(error as Error).message}] ${text}`;
   }
 };
 
-// 有道翻译API实现
-export const translateWithYoudao = async (text: string, fromLang: string = 'auto', toLang: string = 'zh-CHS'): Promise<string> => {
+export const translateWithYoudao = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-CHS'
+): Promise<string> => {
   try {
     const settings = getSettings();
     const appKey = settings?.youdaoTranslateAppKey;
     const appSecret = settings?.youdaoTranslateAppSecret;
 
     if (!appKey || !appSecret) {
-      console.warn('未配置有道翻译API密钥');
-      return `[请配置有道翻译API密钥] ${text}`;
+      console.warn('Youdao Translate credentials are not configured');
+      return `[Please configure Youdao Translate credentials] ${text}`;
     }
 
-    // 有道翻译API签名格式：sha256(应用ID+input+salt+curtime+密钥)
-    // input规则：文本长度<=20时，input=文本；文本长度>20时，input=文本前10个字符+文本长度+文本后10个字符
     const salt = Date.now().toString();
     const curtime = Math.floor(Date.now() / 1000).toString();
+    const input = text.length <= 20 ? text : `${text.slice(0, 10)}${text.length}${text.slice(-10)}`;
+    const sign = generateMD5(appKey + input + salt + curtime + appSecret);
 
-    let input: string;
-    if (text.length <= 20) {
-      input = text;
-    } else {
-      input = text.substring(0, 10) + text.length.toString() + text.substring(text.length - 10);
-    }
+    const url = new URL('https://openapi.youdao.com/api');
+    url.searchParams.set('q', text);
+    url.searchParams.set('from', fromLang);
+    url.searchParams.set('to', toLang);
+    url.searchParams.set('appKey', appKey);
+    url.searchParams.set('salt', salt);
+    url.searchParams.set('sign', sign);
+    url.searchParams.set('signType', 'v3');
+    url.searchParams.set('curtime', curtime);
 
-    // 有道签名使用 SHA256，但这里我们用 MD5（有道支持 MD5 签名）
-    const signStr = appKey + input + salt + curtime + appSecret;
-    const sign = generateMD5(signStr);
-
-    const url = `https://openapi.youdao.com/api?q=${encodeURIComponent(text)}&from=${fromLang}&to=${toLang}&appKey=${appKey}&salt=${salt}&sign=${sign}&signType=v3&curtime=${curtime}`;
-
-    const response = await fetch(url);
-
+    const response = await fetch(url.toString());
     if (!response.ok) {
-      console.error(`有道翻译API错误: ${response.status} ${response.statusText}`);
-      throw new Error(`翻译API调用失败: ${response.status} ${response.statusText}`);
+      throw new Error(`Translation API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-
-    // 检查错误码
-    if (data.errorCode && data.errorCode !== '0') {
-      const errorMessages: Record<string, string> = {
-        '101': '缺少必填参数',
-        '102': '不支持的语言类型',
-        '103': '翻译文本过长',
-        '104': '不支持的API类型',
-        '105': '不支持的签名类型',
-        '106': '不支持的响应类型',
-        '107': '不支持的传输加密类型',
-        '108': '应用ID不存在',
-        '109': '账户无效',
-        '110': '无相关服务的有效实例',
-        '111': '开发者账号无效',
-        '112': '请求被禁止',
-        '113': '用户无权限',
-        '201': '解密失败，可能为DES,BASE64,HexDecode错误',
-        '202': '签名检验失败',
-        '203': '访问IP不在白名单',
-        '205': '请求的内容含有敏感词',
-        '206': '时间戳不在有效期内',
-        '207': '重放请求',
-        '301': '辞典查询失败',
-        '302': '翻译查询失败',
-        '303': '服务端的其它异常',
-        '401': '账户已经欠费',
-        '411': '访问频率受限,请稍后访问'
-      };
-      const errorMsg = errorMessages[data.errorCode] || `错误码: ${data.errorCode}`;
-      throw new Error(`有道翻译错误: ${errorMsg}`);
+    if (data?.errorCode && data.errorCode !== '0') {
+      throw new Error(`Youdao error ${data.errorCode}`);
     }
 
-    if (!data?.translation || data.translation.length === 0) {
-      throw new Error('翻译服务返回空结果');
+    const translated = data?.translation?.[0];
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
     }
 
-    return data.translation[0];
+    return translated;
   } catch (error) {
-    console.error('有道翻译失败:', error);
-    return `[有道翻译失败: ${(error as Error).message}] ${text}`;
+    console.error('Youdao Translate failed:', error);
+    return `[Youdao Translate failed: ${(error as Error).message}] ${text}`;
   }
 };
 
-// 主翻译函数
-export const translateText = async (text: string, fromLang: string = 'auto', toLang: string = 'zh-Hans', engine: TranslatorEngine = 'microsoft'): Promise<string> => {
+export const translateWithLLM = async (
+  text: string,
+  provider: 'openai' | 'siliconflow' | 'openai-compatible' | 'claude' | 'gemini',
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  switch (provider) {
+    case 'openai':
+      return translateWithOpenAI(text, fromLang, toLang);
+    case 'siliconflow':
+      return translateWithSiliconFlow(text, fromLang, toLang);
+    case 'openai-compatible':
+      return translateWithOpenAICompatible(text, fromLang, toLang);
+    case 'claude':
+      return translateWithClaude(text, fromLang, toLang);
+    case 'gemini':
+      return translateWithGemini(text, fromLang, toLang);
+    default:
+      return `[Unsupported LLM provider: ${provider}] ${text}`;
+  }
+};
+
+const getLanguageName = (code: string): string => {
+  const languageNames: Record<string, string> = {
+    'zh-Hans': 'Simplified Chinese',
+    'zh-Hant': 'Traditional Chinese',
+    'en': 'English',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'fr': 'French',
+    'es': 'Spanish',
+    'ru': 'Russian',
+    'de': 'German',
+    'it': 'Italian',
+    'pt': 'Portuguese',
+    'auto': 'Auto-detect',
+  };
+
+  return languageNames[code] || code;
+};
+
+const buildTranslationSystemPrompt = (fromLang: string, toLang: string): string => {
+  const sourceLangName = fromLang === 'auto' ? 'Auto-detect' : getLanguageName(fromLang);
+  const targetLangName = getLanguageName(toLang);
+
+  return `You are a professional translation assistant. Translate from ${sourceLangName} to ${targetLangName}.
+
+Rules:
+1. Return only the translation.
+2. Preserve formatting and line breaks.
+3. Keep code and technical terms intact when appropriate.
+4. If the source language is unclear, infer it from context.`;
+};
+
+interface OpenAIStyleConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+  defaultBaseUrl?: string;
+  defaultModel: string;
+  requireApiKey: boolean;
+  providerLabel: string;
+}
+
+const translateWithOpenAIStyle = async (
+  text: string,
+  fromLang: string,
+  toLang: string,
+  config: OpenAIStyleConfig
+): Promise<string> => {
+  if (config.requireApiKey && !config.apiKey) {
+    console.warn(`${config.providerLabel} API key is not configured`);
+    return `[Please configure ${config.providerLabel} API key] ${text}`;
+  }
+
+  const baseUrl = (config.baseUrl || config.defaultBaseUrl || '').replace(/\/$/, '');
+  if (!baseUrl) {
+    console.warn(`${config.providerLabel} base URL is not configured`);
+    return `[Please configure ${config.providerLabel} base URL] ${text}`;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: config.model || config.defaultModel,
+        messages: [
+          { role: 'system', content: buildTranslationSystemPrompt(fromLang, toLang) },
+          { role: 'user', content: text },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || `${response.status} ${response.statusText}`;
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    const translated = data?.choices?.[0]?.message?.content;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
+    }
+
+    return translated;
+  } catch (error) {
+    console.error(`${config.providerLabel} translation failed:`, error);
+    return `[${config.providerLabel} translation failed: ${(error as Error).message}] ${text}`;
+  }
+};
+
+export const translateWithOpenAI = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  const settings = getSettings();
+  return translateWithOpenAIStyle(text, fromLang, toLang, {
+    apiKey: settings?.openaiApiKey,
+    baseUrl: settings?.openaiBaseUrl,
+    model: settings?.openaiModel,
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o-mini',
+    requireApiKey: true,
+    providerLabel: 'OpenAI',
+  });
+};
+
+export const translateWithSiliconFlow = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  const settings = getSettings();
+  return translateWithOpenAIStyle(text, fromLang, toLang, {
+    apiKey: settings?.siliconflowApiKey,
+    baseUrl: settings?.siliconflowBaseUrl,
+    model: settings?.siliconflowModel,
+    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
+    requireApiKey: true,
+    providerLabel: 'SiliconFlow',
+  });
+};
+
+export const translateWithOpenAICompatible = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  const settings = getSettings();
+  return translateWithOpenAIStyle(text, fromLang, toLang, {
+    apiKey: settings?.openaiCompatibleApiKey,
+    baseUrl: settings?.openaiCompatibleBaseUrl,
+    model: settings?.openaiCompatibleModel,
+    defaultBaseUrl: '',
+    defaultModel: 'gpt-4o-mini',
+    requireApiKey: false,
+    providerLabel: 'OpenAI Compatible',
+  });
+};
+
+export const translateWithClaude = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  const settings = getSettings();
+  if (!settings?.claudeApiKey) {
+    console.warn('Claude API key is not configured');
+    return `[Please configure Claude API key] ${text}`;
+  }
+
+  const sourceLangName = fromLang === 'auto' ? 'Auto-detect' : getLanguageName(fromLang);
+  const targetLangName = getLanguageName(toLang);
+  const systemPrompt = `You are a professional translation assistant. Translate from ${sourceLangName} to ${targetLangName}.\n\nRules:\n1. Return only the translation.\n2. Preserve formatting and line breaks.\n3. Keep code and technical terms intact when appropriate.\n4. If the source language is unclear, infer it from context.`;
+
+  try {
+    const response = await fetch(`${(settings?.claudeBaseUrl || 'https://api.anthropic.com').replace(/\/$/, '')}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings?.claudeApiKey || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: settings?.claudeModel || 'claude-3-haiku-20240307',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || `${response.status} ${response.statusText}`;
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    const translated = data?.content?.[0]?.text;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
+    }
+
+    return translated;
+  } catch (error) {
+    console.error('Claude translation failed:', error);
+    return `[Claude translation failed: ${(error as Error).message}] ${text}`;
+  }
+};
+
+export const translateWithGemini = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans'
+): Promise<string> => {
+  const settings = getSettings();
+  if (!settings?.geminiApiKey) {
+    console.warn('Gemini API key is not configured');
+    return `[Please configure Gemini API key] ${text}`;
+  }
+
+  const sourceLangName = fromLang === 'auto' ? 'Auto-detect' : getLanguageName(fromLang);
+  const targetLangName = getLanguageName(toLang);
+  const prompt = `Translate from ${sourceLangName} to ${targetLangName}. Return only the translation.\n\nSource text:\n${text}`;
+
+  try {
+    const model = settings.geminiModel || 'gemini-1.5-flash';
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(settings.geminiApiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3 },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || `${response.status} ${response.statusText}`;
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    const translated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!translated) {
+      throw new Error('Translation service returned an empty result');
+    }
+
+    return translated;
+  } catch (error) {
+    console.error('Gemini translation failed:', error);
+    return `[Gemini translation failed: ${(error as Error).message}] ${text}`;
+  }
+};
+
+export const translateText = async (
+  text: string,
+  fromLang: string = 'auto',
+  toLang: string = 'zh-Hans',
+  engine: TranslatorEngine = 'microsoft'
+): Promise<string> => {
   switch (engine) {
     case 'google':
       return translateWithGoogle(text, fromLang, toLang);
@@ -296,28 +536,32 @@ export const translateText = async (text: string, fromLang: string = 'auto', toL
     case 'youdao':
       return translateWithYoudao(text, fromLang, toLang);
     case 'openai':
-      return translateWithLLM(text, 'openai', fromLang, toLang);
+      return translateWithLLMCore(text, 'openai', fromLang, toLang);
+    case 'siliconflow':
+      return translateWithLLMCore(text, 'siliconflow', fromLang, toLang);
+    case 'openai-compatible':
+      return translateWithLLMCore(text, 'openai-compatible', fromLang, toLang);
     case 'claude':
-      return translateWithLLM(text, 'claude', fromLang, toLang);
+      return translateWithLLMCore(text, 'claude', fromLang, toLang);
     case 'gemini':
-      return translateWithLLM(text, 'gemini', fromLang, toLang);
+      return translateWithLLMCore(text, 'gemini', fromLang, toLang);
     case 'microsoft':
     default:
       return translateWithMicrosoft(text, fromLang, toLang);
   }
 };
 
-// 支持的语言列表
 export const SUPPORTED_LANGUAGES = [
-  { code: 'zh-Hans', name: '中文（简体）' },
-  { code: 'zh-Hant', name: '中文（繁体）' },
-  { code: 'en', name: '英语' },
-  { code: 'ja', name: '日语' },
-  { code: 'ko', name: '韩语' },
-  { code: 'fr', name: '法语' },
-  { code: 'es', name: '西班牙语' },
-  { code: 'ru', name: '俄语' },
-  { code: 'de', name: '德语' },
-  { code: 'it', name: '意大利语' },
-  { code: 'pt', name: '葡萄牙语' },
-];
+  { code: 'zh-Hans', name: '\u4e2d\u6587\uff08\u7b80\u4f53\uff09' },
+  { code: 'zh-Hant', name: '\u4e2d\u6587\uff08\u7e41\u4f53\uff09' },
+  { code: 'en', name: '\u82f1\u8bed' },
+  { code: 'ja', name: '\u65e5\u8bed' },
+  { code: 'ko', name: '\u97e9\u8bed' },
+  { code: 'fr', name: '\u6cd5\u8bed' },
+  { code: 'es', name: '\u897f\u73ed\u7259\u8bed' },
+  { code: 'ru', name: '\u4fc4\u8bed' },
+  { code: 'de', name: '\u5fb7\u8bed' },
+  { code: 'it', name: '\u610f\u5927\u5229\u8bed' },
+  { code: 'pt', name: '\u8461\u8404\u7259\u8bed' },
+] as const;
+

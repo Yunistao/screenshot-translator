@@ -1,0 +1,19 @@
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  timeout: 60_000,
+  expect: {
+    timeout: 10_000,
+  },
+  workers: 1,
+  fullyParallel: false,
+  reporter: [['list'], ['html', { open: 'never' }]],
+  outputDir: 'test-results',
+  webServer: {
+    command: 'npm run dev:vite',
+    port: 5173,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+});

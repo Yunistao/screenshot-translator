@@ -1,19 +1,19 @@
-import Tesseract from 'tesseract.js';
+﻿import Tesseract from 'tesseract.js';
 import { OCRResult, OCRLine } from '../types/electron';
 
-// 支持的OCR语言模型
+// 鏀寔鐨凮CR璇█妯″瀷
 export const OCR_LANGUAGES = [
-  { code: 'chi_sim+eng', name: '中文简体 + 英文' },
-  { code: 'chi_tra+eng', name: '中文繁体 + 英文' },
-  { code: 'eng', name: '英文' },
-  { code: 'jpn+eng', name: '日语 + 英文' },
-  { code: 'kor+eng', name: '韩语 + 英文' },
-  { code: 'fra+eng', name: '法语 + 英文' },
-  { code: 'spa+eng', name: '西班牙语 + 英文' },
-  { code: 'deu+eng', name: '德语 + 英文' },
-  { code: 'ita+eng', name: '意大利语 + 英文' },
-  { code: 'por+eng', name: '葡萄牙语 + 英文' },
-  { code: 'rus+eng', name: '俄语 + 英文' },
+  { code: 'chi_sim+eng', name: '\u4e2d\u6587\u7b80\u4f53 + \u82f1\u6587' },
+  { code: 'chi_tra+eng', name: '\u4e2d\u6587\u7e41\u4f53 + \u82f1\u6587' },
+  { code: 'eng', name: '\u82f1\u6587' },
+  { code: 'jpn+eng', name: '\u65e5\u8bed + \u82f1\u6587' },
+  { code: 'kor+eng', name: '\u97e9\u8bed + \u82f1\u6587' },
+  { code: 'fra+eng', name: '\u6cd5\u8bed + \u82f1\u6587' },
+  { code: 'spa+eng', name: '\u897f\u73ed\u7259\u8bed + \u82f1\u6587' },
+  { code: 'deu+eng', name: '\u5fb7\u8bed + \u82f1\u6587' },
+  { code: 'ita+eng', name: '\u610f\u5927\u5229\u8bed + \u82f1\u6587' },
+  { code: 'por+eng', name: '\u8461\u8404\u7259\u8bed + \u82f1\u6587' },
+  { code: 'rus+eng', name: '\u4fc4\u8bed + \u82f1\u6587' },
 ];
 
 export const performOCR = async (imageData: string, language: string = 'chi_sim+eng'): Promise<string> => {
@@ -21,7 +21,7 @@ export const performOCR = async (imageData: string, language: string = 'chi_sim+
   return result.text;
 };
 
-// 返回带位置信息的 OCR 结果
+// 杩斿洖甯︿綅缃俊鎭殑 OCR 缁撴灉
 export const performOCRWithLines = async (imageData: string, language: string = 'chi_sim+eng'): Promise<OCRResult> => {
   try {
     const result = await Tesseract.recognize(
@@ -30,13 +30,13 @@ export const performOCRWithLines = async (imageData: string, language: string = 
       {
         logger: (progress) => {
           if (progress.status === 'recognizing text') {
-            console.log('OCR 进度:', Math.round(progress.progress * 100) + '%');
+            console.log('OCR 杩涘害:', Math.round(progress.progress * 100) + '%');
           }
         }
       }
     );
 
-    // 提取行级数据
+    // 鎻愬彇琛岀骇鏁版嵁
     const lines: OCRLine[] = result.data.lines
       ? result.data.lines.map((line) => ({
           text: line.text.trim(),
@@ -49,7 +49,7 @@ export const performOCRWithLines = async (imageData: string, language: string = 
         }))
       : [];
 
-    // 过滤空行
+    // 杩囨护绌鸿
     const filteredLines = lines.filter((line) => line.text.length > 0);
 
     return {
@@ -58,7 +58,7 @@ export const performOCRWithLines = async (imageData: string, language: string = 
       confidence: result.data.confidence,
     };
   } catch (error) {
-    console.error('OCR识别失败:', error);
-    throw new Error('OCR识别失败');
+    console.error('OCR璇嗗埆澶辫触:', error);
+    throw new Error('OCR璇嗗埆澶辫触');
   }
 };

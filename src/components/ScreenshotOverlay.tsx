@@ -34,6 +34,7 @@ const ScreenshotOverlay: React.FC = () => {
     setToolbarPosition,
     showTranslationResult,
     setShowTranslationResult,
+    translationDisplayMode,
     ocrLines,
   } = useAppStore();
 
@@ -57,6 +58,25 @@ const ScreenshotOverlay: React.FC = () => {
       window.electronAPI?.offScreenshotCaptured?.();
     };
   }, [setScreenshotImage]);
+
+  useEffect(() => {
+    if (screenshotImage) {
+      return;
+    }
+
+    let canceled = false;
+    const timer = window.setTimeout(async () => {
+      const fallbackImage = await window.electronAPI?.getOverlayScreenshot?.();
+      if (!canceled && fallbackImage) {
+        setScreenshotImage(fallbackImage);
+      }
+    }, 120);
+
+    return () => {
+      canceled = true;
+      window.clearTimeout(timer);
+    };
+  }, [screenshotImage, setScreenshotImage]);
 
   // 监听窗口大小变化
   useEffect(() => {
@@ -154,12 +174,6 @@ const ScreenshotOverlay: React.FC = () => {
               ctx.moveTo(annotation.points[0].x, annotation.points[0].y);
               annotation.points.forEach(p => ctx.lineTo(p.x, p.y));
               ctx.stroke();
-            }
-            break;
-          case 'text':
-            if (annotation.text && annotation.x !== undefined && annotation.y !== undefined) {
-              ctx.font = '16px Arial';
-              ctx.fillText(annotation.text, annotation.x, annotation.y);
             }
             break;
         }
@@ -395,12 +409,26 @@ const ScreenshotOverlay: React.FC = () => {
   }, []);
 
   // 关闭覆盖窗口
-  const handleClose = async () => {
+  const normalizeCloseOptions = (options?: unknown): { restoreMainWindow?: boolean } | undefined => {
+    if (!options || typeof options !== 'object') {
+      return undefined;
+    }
+
+    const restoreMainWindow = (options as { restoreMainWindow?: unknown }).restoreMainWindow;
+    if (typeof restoreMainWindow !== 'boolean') {
+      return undefined;
+    }
+
+    return { restoreMainWindow };
+  };
+
+  const handleClose = async (options?: unknown) => {
     setScreenshotImage(null);
     setSelectionArea(null);
     setShowToolbar(false);
+    setShowTranslationResult(false);
     setIsEditing(false);
-    await window.electronAPI?.closeScreenshotOverlay();
+    await window.electronAPI?.closeScreenshotOverlay(normalizeCloseOptions(options));
   };
 
   // 开始编辑模式
@@ -460,7 +488,8 @@ const ScreenshotOverlay: React.FC = () => {
         <TranslationOverlay
           selectionArea={selectionArea}
           ocrLines={ocrLines}
-          position="below"
+          mode={translationDisplayMode}
+          position={translationDisplayMode === 'list' ? 'below' : 'overlay'}
           onClose={() => setShowTranslationResult(false)}
         />
       )}
@@ -476,7 +505,10 @@ const ScreenshotOverlay: React.FC = () => {
             // 翻译完成后更新工具栏位置
             if (selectionArea) {
               const toolbarX = selectionArea.x + (selectionArea.width - 300) / 2;
-              const toolbarY = selectionArea.y + selectionArea.height + 120; // 考虑翻译结果高度
+              const toolbarY =
+                translationDisplayMode === 'list'
+                  ? selectionArea.y + selectionArea.height + 120
+                  : selectionArea.y + selectionArea.height + 10;
               setToolbarPosition({
                 x: Math.max(10, Math.min(toolbarX, windowSize.width - 310)),
                 y: Math.min(toolbarY, windowSize.height - 50),
