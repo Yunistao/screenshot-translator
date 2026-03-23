@@ -585,8 +585,6 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
   const pinWindow = new BrowserWindow({
     width: pinSize.width,
     height: pinSize.height,
-    minWidth: 180,
-    minHeight: 120,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
@@ -668,6 +666,35 @@ ipcMain.handle('move-current-window', async (event, x: number, y: number) => {
   }
 
   win.setPosition(Math.round(x), Math.round(y), false);
+  return true;
+});
+
+ipcMain.handle('resize-current-window', async (event, width: number, height: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) {
+    return false;
+  }
+
+  const nextWidth = Math.max(1, Math.round(width));
+  const nextHeight = Math.max(1, Math.round(height));
+
+  const [currentX, currentY] = win.getPosition();
+  const [currentWidth, currentHeight] = win.getSize();
+
+  // Keep visual center stable while scaling.
+  const nextX = currentX + Math.round((currentWidth - nextWidth) / 2);
+  const nextY = currentY + Math.round((currentHeight - nextHeight) / 2);
+
+  win.setBounds(
+    {
+      x: nextX,
+      y: nextY,
+      width: nextWidth,
+      height: nextHeight,
+    },
+    false,
+  );
+
   return true;
 });
 

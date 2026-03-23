@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('close-current-window'),
   moveCurrentWindow: (x: number, y: number) =>
     ipcRenderer.invoke('move-current-window', x, y),
+  resizeCurrentWindow: (width: number, height: number) =>
+    ipcRenderer.invoke('resize-current-window', width, height),
   onPinWindowData: (callback: (data: { imageData: string; ocrText: string; translatedText: string }) => void) =>
     ipcRenderer.on('pin-window-data', (_event, data) => callback(data)),
   offPinWindowData: () => ipcRenderer.removeAllListeners('pin-window-data'),

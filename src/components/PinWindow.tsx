@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PinWindowData } from '../types/electron';
 import './PinWindow.css';
 
@@ -21,6 +22,8 @@ const MAX_SCALE = 3;
 const SCALE_STEP = 0.15;
 const DRAW_COLOR = '#ff4d4f';
 const DRAW_SIZE = 3;
+const MENU_WIDTH = 176;
+const MENU_HEIGHT = 214;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -29,6 +32,7 @@ const PinWindow: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const currentStrokeRef = useRef<Point[] | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const lastAppliedWindowSizeRef = useRef<{ width: number; height: number } | null>(null);
 
   const [data, setData] = useState<PinWindowData | null>(null);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
@@ -38,6 +42,17 @@ const PinWindow: React.FC = () => {
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0 });
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [currentStroke, setCurrentStroke] = useState<Point[] | null>(null);
+
+  const visibleSize = useMemo(() => {
+    if (!naturalSize) {
+      return null;
+    }
+
+    return {
+      width: Math.max(1, Math.round(naturalSize.width * scale)),
+      height: Math.max(1, Math.round(naturalSize.height * scale)),
+    };
+  }, [naturalSize, scale]);
 
   const hideMenu = useCallback(() => {
     setMenu((current) => ({ ...current, visible: false }));
@@ -93,15 +108,15 @@ const PinWindow: React.FC = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !naturalSize) {
+    if (!canvas || !ctx || !naturalSize || !visibleSize) {
       return;
     }
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.max(1, Math.round(naturalSize.width * dpr));
     canvas.height = Math.max(1, Math.round(naturalSize.height * dpr));
-    canvas.style.width = `${naturalSize.width}px`;
-    canvas.style.height = `${naturalSize.height}px`;
+    canvas.style.width = `${visibleSize.width}px`;
+    canvas.style.height = `${visibleSize.height}px`;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, naturalSize.width, naturalSize.height);
@@ -130,7 +145,21 @@ const PinWindow: React.FC = () => {
     if (currentStroke && currentStroke.length > 1) {
       drawStroke({ points: currentStroke, color: DRAW_COLOR, size: DRAW_SIZE });
     }
-  }, [currentStroke, naturalSize, strokes]);
+  }, [currentStroke, naturalSize, strokes, visibleSize]);
+
+  useEffect(() => {
+    if (!visibleSize) {
+      return;
+    }
+
+    const lastApplied = lastAppliedWindowSizeRef.current;
+    if (lastApplied && lastApplied.width === visibleSize.width && lastApplied.height === visibleSize.height) {
+      return;
+    }
+
+    lastAppliedWindowSizeRef.current = visibleSize;
+    void window.electronAPI?.resizeCurrentWindow?.(visibleSize.width, visibleSize.height);
+  }, [visibleSize]);
 
   const getPointFromEvent = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -214,12 +243,12 @@ const PinWindow: React.FC = () => {
 
   const handleCanvasMouseDown = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
-      event.stopPropagation();
-
       if (!isEditing || event.button !== 0) {
         return;
       }
 
+      event.stopPropagation();
+      event.preventDefault();
       hideMenu();
       const point = getPointFromEvent(event);
       if (!point) {
@@ -276,9 +305,14 @@ const PinWindow: React.FC = () => {
   }, []);
 
   const handleEditToggle = useCallback(() => {
-    setIsEditing((current) => !current);
+    setIsEditing((current) => {
+      if (current) {
+        finishStroke();
+      }
+      return !current;
+    });
     hideMenu();
-  }, [hideMenu]);
+  }, [finishStroke, hideMenu]);
 
   const copyCompositeImage = useCallback(async () => {
     if (!data?.imageData || !naturalSize) {
@@ -343,10 +377,8 @@ const PinWindow: React.FC = () => {
   }, [closeWindow]);
 
   const menuStyle = useMemo<React.CSSProperties>(() => {
-    const menuWidth = 176;
-    const menuHeight = 214;
-    const left = clamp(menu.x, 8, Math.max(8, window.innerWidth - menuWidth - 8));
-    const top = clamp(menu.y, 8, Math.max(8, window.innerHeight - menuHeight - 8));
+    const left = clamp(menu.x, 8, Math.max(8, window.innerWidth - MENU_WIDTH - 8));
+    const top = clamp(menu.y, 8, Math.max(8, window.innerHeight - MENU_HEIGHT - 8));
 
     return { left, top };
   }, [menu.x, menu.y]);
@@ -379,9 +411,9 @@ const PinWindow: React.FC = () => {
       <div
         className="pin-stage"
         style={{
-          width: naturalSize?.width ?? '100%',
-          height: naturalSize?.height ?? '100%',
-          transform: `translate(-50%, -50%) scale(${scale})`,
+          width: visibleSize?.width ?? naturalSize?.width ?? '100%',
+          height: visibleSize?.height ?? naturalSize?.height ?? '100%',
+          transform: 'translate(-50%, -50%)',
         }}
       >
         <img
@@ -398,6 +430,7 @@ const PinWindow: React.FC = () => {
         <canvas
           ref={canvasRef}
           className="pin-draw-layer"
+          style={{ pointerEvents: isEditing ? 'auto' : 'none' }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
@@ -409,7 +442,7 @@ const PinWindow: React.FC = () => {
         />
       </div>
 
-      {menu.visible && (
+      {menu.visible && createPortal(
         <div
           ref={menuRef}
           className="pin-context-menu"
@@ -442,10 +475,22 @@ const PinWindow: React.FC = () => {
           >
             缩小
           </button>
-          <button data-testid="pin-context-menu-destroy" onClick={handleDestroy}>
+          <button
+            data-testid="pin-context-menu-destroy"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleDestroy();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
             销毁
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

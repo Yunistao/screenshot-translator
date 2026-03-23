@@ -116,6 +116,7 @@ interface ElectronAPI {
   closePinWindow: (windowId: number) => Promise<boolean>;
   closeCurrentWindow: () => Promise<boolean>;
   moveCurrentWindow: (x: number, y: number) => Promise<boolean>;
+  resizeCurrentWindow: (width: number, height: number) => Promise<boolean>;
   onPinWindowData: (callback: (data: PinWindowData) => void) => void;
   offPinWindowData: () => void;
 }

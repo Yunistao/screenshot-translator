@@ -29,6 +29,18 @@ function getPinWindowCount(app: ElectronApplication): number {
   return app.windows().filter((page) => page.url().includes('pin=true')).length;
 }
 
+async function getPinWindowBounds(
+  app: ElectronApplication,
+): Promise<{ width: number; height: number; x: number; y: number } | null> {
+  return await app.evaluate(({ BrowserWindow }) => {
+    const pinWindow = BrowserWindow.getAllWindows().find((win) => win.webContents.getURL().includes('pin=true'));
+    if (!pinWindow) {
+      return null;
+    }
+    return pinWindow.getBounds();
+  });
+}
+
 async function isMainWindowMinimized(app: ElectronApplication): Promise<boolean> {
   return await app.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows().find((win) => {
@@ -259,8 +271,100 @@ test.describe('Screenshot Overlay / Pin / Translation Modes', () => {
 
     await pinWindow.locator('.pin-root').click({ button: 'right' });
     await expect(pinWindow.locator('[data-testid="pin-context-menu"]')).toBeVisible();
-    await pinWindow.locator('[data-testid="pin-context-menu-destroy"]').click().catch(() => {});
+    await pinWindow.locator('[data-testid="pin-context-menu-destroy"]').dispatchEvent('pointerdown').catch(() => {});
     await expect.poll(() => getPinWindowCount(app)).toBe(0);
+  });
+
+  test('Pin zoom-out should reduce real window bounds and keep drawing functional', async () => {
+    const primaryButton = mainWindow.locator('.primary-button');
+
+    await primaryButton.click();
+    const overlayWindow = await waitForWindow(app, (url) => url.includes('overlay=true'));
+    await overlayWindow.waitForLoadState('domcontentloaded');
+
+    await overlayWindow.evaluate(async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 240;
+      canvas.height = 160;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Failed to create test image');
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 240, 160);
+
+      const imageData = canvas.toDataURL('image/png');
+      const appStore = (window as Window & { __APP_STORE__?: { setState: (state: Record<string, unknown>) => void } }).__APP_STORE__;
+      appStore?.setState({
+        screenshotImage: imageData,
+        selectionArea: { x: 0, y: 0, width: 240, height: 160 },
+        showToolbar: true,
+        toolbarPosition: { x: 20, y: 20 },
+      });
+    });
+
+    await overlayWindow.locator('[data-testid="pin-button"]').first().click();
+
+    const pinWindow = await waitForWindow(app, (url) => url.includes('pin=true'));
+    await pinWindow.waitForLoadState('domcontentloaded');
+    await expect.poll(() => getPinWindowCount(app)).toBe(1);
+
+    const initialBounds = await getPinWindowBounds(app);
+    expect(initialBounds).not.toBeNull();
+
+    await pinWindow.locator('.pin-root').click({ button: 'right' });
+    await pinWindow.locator('[data-testid="pin-context-menu-zoom-out"]').click();
+    await expect(pinWindow.locator('.pin-root')).toHaveAttribute('data-scale', /0\.[0-9]+/);
+
+    await expect
+      .poll(async () => {
+        const nextBounds = await getPinWindowBounds(app);
+        return nextBounds?.width ?? 0;
+      })
+      .toBeLessThan(initialBounds!.width);
+
+    await expect
+      .poll(async () => {
+        const nextBounds = await getPinWindowBounds(app);
+        return nextBounds?.height ?? 0;
+      })
+      .toBeLessThan(initialBounds!.height);
+
+    await pinWindow.locator('.pin-root').click({ button: 'right' });
+    await pinWindow.locator('[data-testid="pin-context-menu-edit"]').click();
+    await expect(pinWindow.locator('.pin-root')).toHaveAttribute('data-editing', 'true');
+
+    const canvas = pinWindow.locator('.pin-draw-layer');
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+
+    const startX = Math.round(box!.x + box!.width * 0.2);
+    const endX = Math.round(box!.x + box!.width * 0.8);
+    const y = Math.round(box!.y + box!.height * 0.5);
+
+    await pinWindow.mouse.move(startX, y);
+    await pinWindow.mouse.down();
+    await pinWindow.mouse.move(endX, y);
+    await pinWindow.mouse.up();
+
+    const strokePixel = await pinWindow.locator('.pin-draw-layer').evaluate((canvasElement) => {
+      const canvas = canvasElement as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Canvas context is unavailable');
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const x = Math.round((canvas.width / dpr) * 0.5 * dpr);
+      const yAt = Math.round((canvas.height / dpr) * 0.5 * dpr);
+      return Array.from(ctx.getImageData(x, yAt, 1, 1).data);
+    });
+
+    expect(strokePixel[0]).toBeGreaterThan(180);
+    expect(strokePixel[1]).toBeLessThan(120);
+    expect(strokePixel[2]).toBeLessThan(120);
+    expect(strokePixel[3]).toBeGreaterThan(0);
   });
 
   test('Translation result defaults to inline mode and can toggle to list mode and back', async () => {
