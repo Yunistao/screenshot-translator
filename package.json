@@ -2,7 +2,7 @@
   "name": "screenshot-translator",
   "version": "1.0.0",
   "description": "A screenshot translation tool with OCR and translation functionality",
-  "main": "dist/main.js",
+  "main": "dist-electron/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "npm run build:main && concurrently \"npm run build:watch\" \"vite\" \"wait-on -t 60000 http://localhost:5173 && electron .\"",
@@ -60,11 +60,11 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*",
-      "node_modules/**/*",
-      "package.json",
-      "index.html",
-      "public/icon.png"
+        "dist/**/*",
+		  "dist-electron/**/*",
+		  "node_modules/**/*",
+		  "package.json",
+		  "public/icon.png"
     ],
     "win": {
       "target": "nsis",

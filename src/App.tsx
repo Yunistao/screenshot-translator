@@ -132,10 +132,20 @@ const SettingsShell: React.FC = () => {
 const App: React.FC = () => {
   const { isOverlay, isPin, isSettings } = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
+    if (!params.toString() && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.slice(window.location.hash.indexOf('?') + 1);
+      const hashParams = new URLSearchParams(hashQuery);
+      for (const [key, value] of hashParams.entries()) {
+        params.set(key, value);
+      }
+    }
+
+    const isTruthyQuery = (value: string | null) => value === 'true' || value === '1';
+
     return {
-      isOverlay: params.get('overlay') === 'true',
-      isPin: params.get('pin') === 'true',
-      isSettings: params.get('settings') === 'true',
+      isOverlay: isTruthyQuery(params.get('overlay')),
+      isPin: isTruthyQuery(params.get('pin')),
+      isSettings: isTruthyQuery(params.get('settings')),
     };
   }, []);
 

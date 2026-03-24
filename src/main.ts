@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, Menu, Tray, ipcMain, desktopCapturer, globalShortcut, nativeImage, screen } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, desktopCapturer, globalShortcut, nativeImage, screen } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,8 +18,6 @@ let latestOverlayScreenshot: string | null = null;
 
 // 鍒ゆ柇鏄惁涓哄紑鍙戞ā寮?
 const isDev = () => process.env.NODE_ENV === 'development' || !app.isPackaged;
-const shouldOpenDevTools = () =>
-  isDev() && process.env.ENABLE_DEVTOOLS === '1' && process.env.DISABLE_DEVTOOLS !== '1';
 const isE2EMockOverlay = () => process.env.E2E_MOCK_OVERLAY === '1';
 const shouldShowMainWindowForE2E = () => process.env.E2E_SHOW_MAIN_WINDOW === '1';
 const shouldDisableTrayForE2E = () => process.env.E2E_DISABLE_TRAY === '1';
@@ -168,17 +166,17 @@ function openScreenshotOverlayWithImage(imageData: string, requestId?: number): 
 }
 
 function getRendererUrl(query?: Record<string, string>): string {
-  const baseUrl = isDev() ? 'http://localhost:5173' : 'index.html';
+  const baseUrl = 'http://localhost:5173';
   if (!query || Object.keys(query).length === 0) {
     return baseUrl;
   }
 
   const searchParams = new URLSearchParams(query);
-  if (isDev()) {
-    return `${baseUrl}?${searchParams.toString()}`;
-  }
+  return `${baseUrl}?${searchParams.toString()}`;
+}
 
-  return baseUrl;
+function getRendererHtmlPath(): string {
+  return path.join(__dirname, '../dist/index.html');
 }
 
 function loadRendererWindow(targetWindow: BrowserWindow, query?: Record<string, string>) {
@@ -187,7 +185,36 @@ function loadRendererWindow(targetWindow: BrowserWindow, query?: Record<string, 
     return;
   }
 
-  targetWindow.loadFile('index.html', { query });
+  targetWindow.loadFile(getRendererHtmlPath(), { query });
+}
+
+function attachRendererDiagnostics(targetWindow: BrowserWindow, windowName: string) {
+  targetWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      console.error(
+        `[${windowName}] did-fail-load code=${errorCode} mainFrame=${isMainFrame} url=${validatedURL} error=${errorDescription}`,
+      );
+    },
+  );
+
+  targetWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(
+      `[${windowName}] render-process-gone reason=${details.reason} exitCode=${details.exitCode}`,
+    );
+  });
+
+  targetWindow.webContents.on('console-message', (_event, _level, message) => {
+    console.log('[renderer]', message);
+  });
+
+  targetWindow.on('unresponsive', () => {
+    console.error(`[${windowName}] window became unresponsive`);
+  });
+
+  targetWindow.on('responsive', () => {
+    console.log(`[${windowName}] window became responsive again`);
+  });
 }
 
 function showMainWindow(options?: { openRecentResult?: boolean }) {
@@ -241,14 +268,12 @@ function createSettingsWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: false,
     },
   });
+  attachRendererDiagnostics(settingsWindow, 'settings-window');
 
   loadRendererWindow(settingsWindow, { settings: 'true' });
-
-  if (shouldOpenDevTools()) {
-    settingsWindow.webContents.openDevTools({ mode: 'detach' });
-  }
 
   settingsWindow.once('ready-to-show', () => {
     settingsWindow?.show();
@@ -277,17 +302,15 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: false,
     },
     resizable: true,
     show: showOnStart,
     title: 'Screenshot Translator',
   });
+  attachRendererDiagnostics(mainWindow, 'main-window');
 
   loadRendererWindow(mainWindow);
-
-  if (shouldOpenDevTools()) {
-    mainWindow.webContents.openDevTools();
-  }
 
   mainWindow.on('close', (event) => {
     if (isQuitting) {
@@ -350,12 +373,6 @@ function createWindow() {
           label: '\u5f3a\u5236\u91cd\u65b0\u52a0\u8f7d',
           accelerator: 'Ctrl+Shift+R',
           click: () => mainWindow?.webContents.reloadIgnoringCache(),
-        },
-        { type: 'separator' },
-        {
-          label: '\u5f00\u53d1\u8005\u5de5\u5177',
-          accelerator: 'Ctrl+Shift+I',
-          click: () => mainWindow?.webContents.toggleDevTools(),
         },
       ],
     },
@@ -704,20 +721,14 @@ function createScreenshotOverlayWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: false,
     },
   });
+  attachRendererDiagnostics(screenshotOverlayWindow, 'overlay-window');
 
-  // 鍔犺浇瑕嗙洊绐楀彛椤甸潰锛堝甫鏈?overlay 鏌ヨ鍙傛暟锛?
-  if (isDev()) {
-    screenshotOverlayWindow.loadURL('http://localhost:5173?overlay=true');
-  } else {
-    screenshotOverlayWindow.loadFile('index.html', { query: { overlay: 'true' } });
-  }
+  loadRendererWindow(screenshotOverlayWindow, { overlay: 'true' });
 
   // 寮€鍙戞ā寮忎笅鎵撳紑寮€鍙戣€呭伐鍏?
-  if (shouldOpenDevTools()) {
-    screenshotOverlayWindow.webContents.openDevTools({ mode: 'detach' });
-  }
 
   screenshotOverlayWindow.on('closed', () => {
     screenshotOverlayWindow = null;
@@ -818,16 +829,13 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: false,
     },
   });
+  attachRendererDiagnostics(pinWindow, 'pin-window');
 
-  // 鍔犺浇缃《绐楀彛椤甸潰锛堝甫鏈?pin 鏌ヨ鍙傛暟锛?
-  const params = new URLSearchParams({ pin: 'true' });
-  if (isDev()) {
-    pinWindow.loadURL(`http://localhost:5173?${params.toString()}`);
-  } else {
-    pinWindow.loadFile('index.html', { query: { pin: 'true' } });
-  }
+  loadRendererWindow(pinWindow, { pin: 'true' });
+
 
   pinWindow.on('closed', () => {
     pinWindows.delete(pinWindow);
