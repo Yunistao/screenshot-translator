@@ -268,7 +268,7 @@ function createSettingsWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
     },
   });
   attachRendererDiagnostics(settingsWindow, 'settings-window');
@@ -291,18 +291,18 @@ function createWindow() {
   const showOnStart = shouldShowMainWindowForE2E();
 
   mainWindow = new BrowserWindow({
-    width: 380,
-    height: 360,
-    minWidth: 340,
-    minHeight: 320,
-    maxWidth: 520,
-    maxHeight: 620,
+    width: 320,
+    height: 200,
+    minWidth: 280,
+    minHeight: 160,
+    maxWidth: 400,
+    maxHeight: 300,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
     },
     resizable: true,
     show: showOnStart,
@@ -721,7 +721,7 @@ function createScreenshotOverlayWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
     },
   });
   attachRendererDiagnostics(screenshotOverlayWindow, 'overlay-window');
@@ -829,7 +829,7 @@ function createPinWindow(imageData: string, ocrText?: string, translatedText?: s
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
     },
   });
   attachRendererDiagnostics(pinWindow, 'pin-window');

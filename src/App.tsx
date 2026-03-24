@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ScreenshotTool from './components/ScreenshotTool';
 import SettingsPanel from './components/SettingsPanel';
 import ScreenshotOverlay from './components/ScreenshotOverlay';
@@ -7,7 +7,6 @@ import { useAppStore } from './store/appStore';
 import { useI18n } from './i18n/I18nContext';
 
 const MainApp: React.FC = () => {
-  const [showSettings, setShowSettings] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const { translatedText, setTranslatedText, ocrText, imageData, setImageData } = useAppStore();
   const { tNested } = useI18n();
@@ -52,7 +51,6 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     const handleOpenRecentResult = () => {
-      setShowSettings(false);
       resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -65,31 +63,11 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="app-container compact-app workbench-app">
-      <div className="main-toolbar">
-        <button
-          type="button"
-          className={`settings-gear-button ${showSettings ? 'active' : ''}`}
-          onClick={() => setShowSettings((previous) => !previous)}
-          aria-label={showSettings ? tNested('settings.hide') : tNested('settings.show')}
-          title={showSettings ? tNested('settings.hide') : tNested('settings.show')}
-        >
-          <span aria-hidden="true">{'\u2699'}</span>
-        </button>
-      </div>
+      <section className="workbench-card control-card">
+        <ScreenshotTool />
+      </section>
 
-      {!showSettings && (
-        <section className="workbench-card control-card">
-          <ScreenshotTool />
-        </section>
-      )}
-
-      {showSettings && (
-        <section className="workbench-card settings-card">
-          <SettingsPanel />
-        </section>
-      )}
-
-      {!showSettings && (ocrText || translatedText) && (
+      {(ocrText || translatedText) && (
         <div className="workbench-card result-container compact-result result-card" ref={resultRef}>
           {ocrText && (
             <div className="ocr-section">

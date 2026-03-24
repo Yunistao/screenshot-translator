@@ -130,7 +130,10 @@ const SettingsPanel: React.FC = () => {
     localStorage.setItem('screenshotTranslatorSettings', JSON.stringify(nextSettings));
     window.electronAPI?.updateShortcut?.(shortcutKey);
     setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setTimeout(() => {
+      setSaved(false);
+      window.electronAPI?.closeCurrentWindow?.();
+    }, 500);
   };
 
   const handleReset = () => {

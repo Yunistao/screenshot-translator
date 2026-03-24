@@ -2,9 +2,19 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="./icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Screenshot Translator</title>
+    <!-- Prevent drag-related errors from Chromium -->
+    <script>
+      // Suppress known Chromium drag event errors
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.indexOf('dragEvent') !== -1) {
+          e.preventDefault();
+          return true;
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
