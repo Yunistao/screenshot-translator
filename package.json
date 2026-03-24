@@ -66,6 +66,13 @@
 		  "package.json",
 		  "public/icon.png"
     ],
+	 "publish": [
+     {
+      "provider": "github",
+      "owner": "Yunistao",
+      "repo": "screenshot-translator"
+     }
+    ],
     "win": {
       "target": "nsis",
       "icon": "public/icon.png",
